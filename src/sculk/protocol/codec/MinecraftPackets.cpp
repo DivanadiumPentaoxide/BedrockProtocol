@@ -5,7 +5,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-#pragma once
 #include "sculk/protocol/codec/MinecraftPackets.hpp"
 #include "sculk/protocol/codec/packet/ActorEventPacket.hpp"
 #include "sculk/protocol/codec/packet/ActorPickRequestPacket.hpp"

@@ -84,7 +84,7 @@ int main() {
     auto packet = MinecraftPackets::createPacket(header);
 
     if (packet) {
-        const auto readResult = packet->readNoHeader(readStream);
+        const auto readResult = packet->read(readStream);
         if (!readResult) {
             return 1;
         }

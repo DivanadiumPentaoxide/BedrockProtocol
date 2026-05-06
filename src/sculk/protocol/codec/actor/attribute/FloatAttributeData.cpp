@@ -5,7 +5,6 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-#pragma once
 #include "sculk/protocol/codec/actor/attribute/FloatAttributeData.hpp"
 #include "../../utility/EnumName.hpp"
 

@@ -15,7 +15,7 @@ std::string_view PlayerArmorDamagePacket::getName() const noexcept { return "Pla
 
 void PlayerArmorDamagePacket::write(BinaryStream& stream) const {
     stream.writeUnsignedVarInt(static_cast<uint32_t>(mSlotsBitset.count()));
-    for (int index = 0; index < ArmorSlotCount; index++) {
+    for (std::size_t index = 0; index < ArmorSlotCount; index++) {
         if (mSlotsBitset.test(index)) {
             stream.writeByte(static_cast<uint8_t>(index << 1));
             stream.writeSignedShort(mDamage[index]);

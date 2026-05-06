@@ -12,7 +12,8 @@ include(FetchContent)
 
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
 
-find_package(OpenSSL 3 REQUIRED)
+set(OPENSSL_USE_STATIC_LIBS ON)
+find_package(OpenSSL REQUIRED)
 
 set(REFLECTION_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
@@ -49,23 +50,23 @@ target_include_directories(Protocol PUBLIC
 )
 
 if(MSVC)
-    target_compile_options(Protocol PRIVATE 
+    target_compile_options(Protocol PRIVATE
         /W4
         /utf-8
         $<$<CONFIG:Release>:/O2>
         $<$<CONFIG:RelWithDebInfo>:/O2>
     )
-    target_compile_definitions(Protocol PRIVATE 
+    target_compile_definitions(Protocol PRIVATE
         UNICODE
         NOMINMAX
     )
 else()
-    target_compile_options(Protocol PRIVATE 
-       -Wall
-       -Wextra
-       -Wpedantic
-       $<$<CONFIG:Release>:-O3>
-       $<$<CONFIG:RelWithDebInfo>:-O3>
+    target_compile_options(Protocol PRIVATE
+        -Wall
+        -Wextra
+        -Wpedantic
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:RelWithDebInfo>:-O3>
     )
 endif()
 
