@@ -19,10 +19,10 @@ namespace sculk::protocol::inline abi_v975 {
 
 class LoginRequest {
 public:
-    AuthenticationType     mAuthenticationType{};
-    LegacyCertificateChain mCertificateChain{};
-    LoginToken             mLoginToken{};
-    ClientProperties       mClientProperties{};
+    AuthenticationType                    mAuthenticationType{};
+    std::optional<LegacyCertificateChain> mCertificateChain{};
+    LoginToken                            mLoginToken{};
+    ClientProperties                      mClientProperties{};
 
 public:
     [[nodiscard]] Result<> load(const ConnectionRequest& request);
