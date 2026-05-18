@@ -10,6 +10,20 @@
 
 namespace sculk::protocol::inline abi_v975 {
 
+void ClientboundDebugRendererPacket::DebugMarkerData::write(BinaryStream& stream) const {
+    stream.writeString(mText);
+    mPosition.write(stream);
+    stream.writeSignedInt(mColor);
+    stream.writeUnsignedInt64(mDurationMilliseconds);
+}
+
+Result<> ClientboundDebugRendererPacket::DebugMarkerData::read(ReadOnlyBinaryStream& stream) {
+    _SCULK_READ(stream.readString(mText));
+    _SCULK_READ(mPosition.read(stream));
+    _SCULK_READ(stream.readSignedInt(mColor));
+    return stream.readUnsignedInt64(mDurationMilliseconds);
+}
+
 MinecraftPacketIds ClientboundDebugRendererPacket::getId() const noexcept {
     return MinecraftPacketIds::ClientboundDebugRenderer;
 }
@@ -18,23 +32,12 @@ std::string_view ClientboundDebugRendererPacket::getName() const noexcept { retu
 
 void ClientboundDebugRendererPacket::write(BinaryStream& stream) const {
     utils::writeEnumName(stream, mType);
-    if (mType == Type::AddDebugMarkerCube) {
-        stream.writeString(mText);
-        mPosition.write(stream);
-        stream.writeSignedInt(mColor);
-        stream.writeUnsignedInt64(mDurationMilliseconds);
-    }
+    stream.writeOptional(mDebugMarkerData, &DebugMarkerData::write);
 }
 
 Result<> ClientboundDebugRendererPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(utils::readEnumName(stream, mType));
-    if (mType == Type::AddDebugMarkerCube) {
-        _SCULK_READ(stream.readString(mText));
-        _SCULK_READ(mPosition.read(stream));
-        _SCULK_READ(stream.readSignedInt(mColor));
-        return stream.readUnsignedInt64(mDurationMilliseconds);
-    }
-    return {};
+    return stream.readOptional(mDebugMarkerData, &DebugMarkerData::read);
 }
 
 } // namespace sculk::protocol::inline abi_v975

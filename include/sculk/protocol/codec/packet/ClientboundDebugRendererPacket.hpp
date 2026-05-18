@@ -19,12 +19,20 @@ public:
         AddDebugMarkerCube = 2,
     };
 
+    struct DebugMarkerData {
+        std::string   mText{};
+        Vec3          mPosition{};
+        std::int32_t  mColor{};
+        std::uint64_t mDurationMilliseconds{};
+
+        void write(BinaryStream& stream) const;
+
+        [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
+    };
+
 public:
-    Type          mType{};
-    std::string   mText{};
-    Vec3          mPosition{};
-    std::int32_t  mColor{};
-    std::uint64_t mDurationMilliseconds{};
+    Type                           mType{};
+    std::optional<DebugMarkerData> mDebugMarkerData{};
 
 public:
     [[nodiscard]] MinecraftPacketIds getId() const noexcept override;
