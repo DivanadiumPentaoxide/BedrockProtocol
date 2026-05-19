@@ -23,10 +23,10 @@ struct SerializableVoxelShape {
         [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
     };
 
-    std::vector<SerializableCells> mCells{};
-    std::vector<float>             mXCoordinates{};
-    std::vector<float>             mYCoordinates{};
-    std::vector<float>             mZCoordinates{};
+    SerializableCells  mCells{};
+    std::vector<float> mXCoordinates{};
+    std::vector<float> mYCoordinates{};
+    std::vector<float> mZCoordinates{};
 
     void write(BinaryStream& stream) const;
 

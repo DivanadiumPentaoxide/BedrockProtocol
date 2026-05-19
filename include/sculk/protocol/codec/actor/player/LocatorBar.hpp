@@ -15,7 +15,7 @@
 
 namespace sculk::protocol::inline abi_v975 {
 
-enum class LocatorBarAction : std::uint8_t {
+enum class LocatorBarAction : std::uint32_t {
     None   = 0,
     Add    = 1,
     Remove = 2,
@@ -57,7 +57,7 @@ struct LocatorBarServerWaypointPayload {
 struct LocatorBarWaypointPayload {
     LocatorBarWaypointHandle        mGroupHandle{};
     LocatorBarServerWaypointPayload mServerWaypointPayload{};
-    LocatorBarAction                mActionFlag{LocatorBarAction::None};
+    LocatorBarAction                mActionFlag{};
 
     void write(BinaryStream& stream) const;
 

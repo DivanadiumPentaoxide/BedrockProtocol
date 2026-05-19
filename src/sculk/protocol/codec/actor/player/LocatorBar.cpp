@@ -48,13 +48,13 @@ Result<> LocatorBarServerWaypointPayload::read(ReadOnlyBinaryStream& stream) {
 void LocatorBarWaypointPayload::write(BinaryStream& stream) const {
     mGroupHandle.write(stream);
     mServerWaypointPayload.write(stream);
-    stream.writeEnum(mActionFlag, &BinaryStream::writeByte);
+    stream.writeEnum(mActionFlag, &BinaryStream::writeUnsignedVarInt);
 }
 
 Result<> LocatorBarWaypointPayload::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(mGroupHandle.read(stream));
     _SCULK_READ(mServerWaypointPayload.read(stream));
-    return stream.readEnum(mActionFlag, &ReadOnlyBinaryStream::readByte);
+    return stream.readEnum(mActionFlag, &ReadOnlyBinaryStream::readUnsignedVarInt);
 }
 
 } // namespace sculk::protocol::inline abi_v975

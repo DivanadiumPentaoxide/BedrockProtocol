@@ -24,14 +24,14 @@ Result<> SerializableVoxelShape::SerializableCells::read(ReadOnlyBinaryStream& s
 }
 
 void SerializableVoxelShape::write(BinaryStream& stream) const {
-    stream.writeArray(mCells, &SerializableCells::write);
+    mCells.write(stream);
     stream.writeArray(mXCoordinates, &BinaryStream::writeFloat);
     stream.writeArray(mYCoordinates, &BinaryStream::writeFloat);
     stream.writeArray(mZCoordinates, &BinaryStream::writeFloat);
 }
 
 Result<> SerializableVoxelShape::read(ReadOnlyBinaryStream& stream) {
-    _SCULK_READ(stream.readArray(mCells, &SerializableCells::read));
+    _SCULK_READ(mCells.read(stream));
     _SCULK_READ(stream.readArray(mXCoordinates, &ReadOnlyBinaryStream::readFloat));
     _SCULK_READ(stream.readArray(mYCoordinates, &ReadOnlyBinaryStream::readFloat));
     return stream.readArray(mZCoordinates, &ReadOnlyBinaryStream::readFloat);
