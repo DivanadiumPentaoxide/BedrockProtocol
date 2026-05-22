@@ -7,11 +7,20 @@
 
 #pragma once
 #include "sculk/protocol/utility/Result.hpp"
+#include <optional>
 #include <string>
 
 namespace sculk::protocol::inline abi_v975 {
 
 class LoginToken {
+public:
+    struct Header {
+        std::string                alg{};
+        std::optional<std::string> kid{};
+        std::optional<std::string> x5u{};
+        std::optional<std::string> typ{};
+    };
+
 public:
     [[nodiscard]] std::string toString() const;
 
