@@ -84,6 +84,10 @@ struct MojangServiceFetchResult {
     } result;
 };
 
+struct MojangConfigFetchResult {
+    std::string issuer{};
+};
+
 struct MojangPublicKeyFetchResult {
     struct KeyInfo {
         std::string kty{};
@@ -118,13 +122,12 @@ Result<> AuthenticationKeyManager::initMojangPublicKeyBlocking(std::size_t timeo
     if (!reflection::jsonc::deserialize(fetchResult, *serviceJson)) {
         return error_utils::makeError("Failed to deserialize Mojang service response JSON");
     }
-    mLoginTokenExpectedIssuer = fetchResult.result.serviceEnvironments.auth.prod.issuer;
 
-    //  {auth service base URL)/.well-known/keys
     httplib::Client keyClient(fetchResult.result.serviceEnvironments.auth.prod.serviceUri);
     keyClient.set_connection_timeout(timeoutSeconds);
     keyClient.set_read_timeout(timeoutSeconds);
     keyClient.set_write_timeout(timeoutSeconds);
+    // {auth service base URL}/.well-known/keys
     httplib::Result keyRes = keyClient.Get("/.well-known/keys");
     if (!keyRes || keyRes->status != 200) {
         return error_utils::makeError("Failed to fetch Mojang public key from Internet");
@@ -149,6 +152,21 @@ Result<> AuthenticationKeyManager::initMojangPublicKeyBlocking(std::size_t timeo
             mLoginTokenPublicKeysPemByKeyId.emplace(keyInfo.kid, std::move(pem));
         }
     }
+
+    // {auth service base URL}/.well-known/openid-configuration
+    httplib::Result issuerRes = keyClient.Get("/.well-known/openid-configuration");
+    if (!issuerRes || issuerRes->status != 200) {
+        return error_utils::makeError("Failed to fetch Mojang configuration from Internet");
+    }
+    auto issuerJson = jsonc::json::parse(issuerRes->body);
+    if (!issuerJson) {
+        return error_utils::makeError("Failed to parse Mojang configuration response JSON");
+    }
+    MojangConfigFetchResult configFetchResult{};
+    if (!reflection::jsonc::deserialize(configFetchResult, *issuerJson)) {
+        return error_utils::makeError("Failed to deserialize Mojang configuration response JSON");
+    }
+    mLoginTokenExpectedIssuer = std::move(configFetchResult.issuer);
 
     return {};
 }
