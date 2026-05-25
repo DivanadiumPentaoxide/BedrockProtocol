@@ -77,7 +77,7 @@ concept IsBitset = IsStdBitset<std::remove_cvref_t<T>>::value;
 } // namespace concepts
 
 template <typename T, typename F>
-constexpr void for_each_field_with_name(T&& value, F&& func) {
+constexpr void forEachFieldWithName(T&& value, F&& func) {
     return boost::pfr::for_each_field(
         std::forward<T>(value),
         [f = std::forward<F>(func)](auto&& field, auto index) mutable {
@@ -90,9 +90,107 @@ constexpr void for_each_field_with_name(T&& value, F&& func) {
     );
 }
 
+constexpr bool isValidUTF8(std::string_view s) {
+    auto       it  = s.begin();
+    const auto end = s.end();
+
+    while (it != end) {
+        const std::uint8_t c         = static_cast<std::uint8_t>(*it++);
+        std::size_t        remaining = 0;
+
+        if (c <= 0x7F) {
+            continue;
+        } else if ((c & 0xE0) == 0xC0) {
+            remaining = 1;
+            if (c < 0xC2) return false;
+        } else if ((c & 0xF0) == 0xE0) {
+            remaining = 2;
+        } else if ((c & 0xF8) == 0xF0) {
+            remaining = 3;
+            if (c > 0xF4) return false;
+        } else {
+            return false;
+        }
+
+        if (static_cast<std::size_t>(std::distance(it, end)) < remaining) return false;
+        for (std::size_t i = 0; i < remaining; ++i, ++it) {
+            if ((static_cast<std::uint8_t>(*it) & 0xC0) != 0x80) return false;
+        }
+
+        if (remaining == 1) {
+            return true;
+        } else if (remaining == 2) {
+            const std::uint32_t cp = static_cast<std::uint32_t>((c & 0x0F) << 12)
+                                   | static_cast<std::uint32_t>((static_cast<std::uint8_t>(*(it - 2)) & 0x3F) << 6)
+                                   | static_cast<std::uint32_t>((static_cast<std::uint8_t>(*(it - 1)) & 0x3F));
+            if (cp < 0x0800 || (cp >= 0xD800 && cp <= 0xDFFF)) return false;
+        } else if (remaining == 3) {
+            const std::uint32_t cp = static_cast<std::uint32_t>((c & 0x07) << 18)
+                                   | static_cast<std::uint32_t>((static_cast<std::uint8_t>(*(it - 3)) & 0x3F) << 12)
+                                   | static_cast<std::uint32_t>(((static_cast<std::uint8_t>(*(it - 2)) & 0x3F) << 6))
+                                   | static_cast<std::uint32_t>((static_cast<std::uint8_t>(*(it - 1)) & 0x3F));
+            if (cp < 0x10000 || cp > 0x10FFFF) return false;
+        }
+    }
+    return true;
+}
+
+constexpr std::string dumpString(std::string_view content) {
+    std::string result;
+    result.reserve(static_cast<size_t>(static_cast<double>(content.size()) * 1.05));
+
+    for (char c : content) {
+        switch (c) {
+        case '"':
+            result += "\\\"";
+            break;
+        case '\\':
+            result += "\\\\";
+            break;
+        case '\b':
+            result += "\\b";
+            break;
+        case '\f':
+            result += "\\f";
+            break;
+        case '\n':
+            result += "\\n";
+            break;
+        case '\r':
+            result += "\\r";
+            break;
+        case '\t':
+            result += "\\t";
+            break;
+        default:
+            if (static_cast<uint8_t>(c) <= 0x1F) {
+                result.append(std::format("\\u{:04x}", c));
+            } else {
+                result.push_back(c);
+            }
+        }
+    }
+
+    return result;
+}
+
+constexpr std::string formatString(std::string_view str) {
+    if (isValidUTF8(str)) {
+        return dumpString(str);
+    } else {
+        std::string out{"0x"};
+        for (std::uint8_t c : str) {
+            out.append(std::format("{:02X}", c));
+        }
+        return out;
+    }
+}
+
 template <typename T>
 constexpr std::string typeToString(const T& value) {
-    if constexpr (concepts::IsOptional<T>) {
+    if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::string_view>) {
+        return value.empty() ? "\"\"" : formatString(value);
+    } else if constexpr (concepts::IsOptional<T>) {
         return value.has_value() ? typeToString(*value) : "null";
     } else if constexpr (concepts::IsArray<T>) {
         std::string out{"["};
@@ -174,7 +272,7 @@ template <typename T>
     requires std::is_aggregate_v<T>
 constexpr std::string toString(const T& value) {
     std::string out{"{"};
-    detail::for_each_field_with_name(value, [&out](std::string_view name, const auto& field, bool last) {
+    detail::forEachFieldWithName(value, [&out](std::string_view name, const auto& field, bool last) {
         append(out, name, field, last);
     });
     out.push_back('}');
