@@ -218,7 +218,7 @@ Result<> ConnectionRequest::sign(const AuthenticationKeyManager& authenticationK
 
     mAuthenticationType = authenticationKeyManager.getSigningAuthenticationType();
     if (mAuthenticationType == AuthenticationType::Full) {
-        if (!ensureAndFillAllFieldsFull(*this, authenticationKeyManager)) {
+        if (auto status = ensureAndFillAllFieldsFull(*this, authenticationKeyManager); !status) {
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
             return error_utils::makeError(
                 std::format("Failed to ensure and fill all fields for full authentication: {}", status.error().mMessage)
@@ -228,7 +228,7 @@ Result<> ConnectionRequest::sign(const AuthenticationKeyManager& authenticationK
 #endif
         }
     } else if (mAuthenticationType == AuthenticationType::SelfSigned) {
-        if (!ensureAndFillAllFieldsSelfSigned(*this)) {
+        if (auto status = ensureAndFillAllFieldsSelfSigned(*this); !status) {
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
             return error_utils::makeError(
                 std::format(
