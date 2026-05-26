@@ -212,7 +212,7 @@ Result<> LoginToken::signSelfSigned(const AuthenticationKeyManager& authenticati
     }
 
     mHeader.alg = "ES384";
-    mHeader.x5u = keyPair->mPublicKeyPem;
+    mHeader.x5u = pem_helper::stripPemMarkersAndCompact(keyPair->mPublicKeyPem);
 
     SCULK_LOGIN_TOKEN_CREATE_JSON(header, mHeader);
     SCULK_LOGIN_TOKEN_SERIALIZE(header, alg);

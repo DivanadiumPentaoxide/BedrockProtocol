@@ -129,10 +129,10 @@ ensureAndFillAllFieldsFull(ConnectionRequest& request, const AuthenticationKeyMa
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                          .identity    = request.getIdentity().toString(),
-                          .displayName = request.getXboxLiveName(),
-                          .XUID        = request.getXboxLiveID().value_or(""),
-                          .sandBoxId   = "RETAIL"
+                        .identity    = request.getIdentity().toString(),
+                        .displayName = request.getXboxLiveName(),
+                        .XUID        = request.getXboxLiveID().value_or(""),
+                        .sandBoxId   = "RETAIL"
                     }
                 }
             }
@@ -176,9 +176,9 @@ ensureAndFillAllFieldsSelfSigned(ConnectionRequest& request, const Authenticatio
             .mLoginCertificate = Certificate{
                 .mPayload = {
                     .randomNonce = randomInt(),
-                    // .iss         = "Mojang",
-                    // .iat         = 0,
-                    .extraData = Certificate::ExtraData{
+                    .iss         = "Mojang",
+                    .iat         = 0,
+                    .extraData   = Certificate::ExtraData{
                         .identity    = request.getIdentity().toString(),
                         .displayName = request.getXboxLiveName(),
                         .XUID        = "",      // Empty XUID
