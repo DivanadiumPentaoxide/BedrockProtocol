@@ -272,20 +272,20 @@ Result<> LegacyCertificateChain::signFull(
         return error_utils::makeError("Login key pair not set, set the login key pair before signing");
     }
 
-    mClientCertificate->mHeader.x5u                = keyPair1->mPublicKeyPem;
-    mClientCertificate->mPayload.identityPublicKey = keyPair3->mPublicKeyPem;
+    mClientCertificate->mHeader.x5u                = pem_helper::stripPemMarkersAndCompact(keyPair1->mPublicKeyPem);
+    mClientCertificate->mPayload.identityPublicKey = pem_helper::stripPemMarkersAndCompact(keyPair3->mPublicKeyPem);
     if (!mClientCertificate->sign(keyPair1->mPrivateKeyPem, now)) {
         return error_utils::makeError("Failed to sign client certificate");
     }
 
-    mMojangCertificate->mHeader.x5u                = keyPair2->mPublicKeyPem;
-    mMojangCertificate->mPayload.identityPublicKey = keyPair1->mPublicKeyPem;
+    mMojangCertificate->mHeader.x5u                = pem_helper::stripPemMarkersAndCompact(keyPair2->mPublicKeyPem);
+    mMojangCertificate->mPayload.identityPublicKey = pem_helper::stripPemMarkersAndCompact(keyPair1->mPublicKeyPem);
     if (!mMojangCertificate->sign(keyPair2->mPrivateKeyPem, now)) {
         return error_utils::makeError("Failed to sign Mojang certificate");
     }
 
-    mLoginCertificate.mHeader.x5u                = keyPair3->mPublicKeyPem;
-    mLoginCertificate.mPayload.identityPublicKey = keyPair2->mPublicKeyPem;
+    mLoginCertificate.mHeader.x5u                = pem_helper::stripPemMarkersAndCompact(keyPair3->mPublicKeyPem);
+    mLoginCertificate.mPayload.identityPublicKey = pem_helper::stripPemMarkersAndCompact(keyPair2->mPublicKeyPem);
     if (!mLoginCertificate.sign(keyPair3->mPrivateKeyPem, now)) {
         return error_utils::makeError("Failed to sign login certificate");
     }

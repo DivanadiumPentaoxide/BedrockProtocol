@@ -130,7 +130,7 @@ Result<> ClientProperties::sign(const AuthenticationKeyManager& authenticationKe
         return error_utils::makeError("Failed to get client properties key pair from authentication key manager");
 #endif
     }
-    mHeader.x5u = keyPair->mPublicKeyPem;
+    mHeader.x5u = pem_helper::stripPemMarkersAndCompact(keyPair->mPublicKeyPem);
 
     SCULK_CLIENT_PROPERTIES_CREATE_JSON(header, mHeader);
     SCULK_CLIENT_PROPERTIES_SERIALIZE(header, alg);

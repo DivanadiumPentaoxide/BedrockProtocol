@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "PemHelper.hpp"
 #include "sculk/protocol/utility/Base64Url.hpp"
 #include <array>
 #include <cstdint>

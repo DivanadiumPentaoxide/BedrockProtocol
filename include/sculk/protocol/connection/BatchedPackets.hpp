@@ -17,4 +17,4 @@ public:
     std::vector<std::unique_ptr<IPacket>> mPackets;
 };
 
-}
+} // namespace sculk::protocol::inline abi_v975

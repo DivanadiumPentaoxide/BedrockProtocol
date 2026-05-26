@@ -251,8 +251,8 @@ constexpr std::string typeToString(const T& value) {
 }
 
 template <typename... Args, std::size_t... Is>
-constexpr std::string format_impl(std::index_sequence<Is...>, Args&&... args) {
-    std::string out{"{"};
+constexpr std::string formatPacketImpl(const IPacket& packet, std::index_sequence<Is...>, Args&&... args) {
+    std::string out = std::format("{} {{ ", packet.getName());
     ((out.append(args), (Is != sizeof...(Args) - 1 ? out.append(", ") : out)), ...);
     out.push_back('}');
     return out;
@@ -280,13 +280,13 @@ constexpr std::string toString(const T& value) {
 }
 
 template <typename... Args>
-constexpr std::string format(Args&&... args) {
-    return detail::format_impl(std::index_sequence_for<Args...>{}, std::forward<Args>(args)...);
+constexpr std::string formatPacket(const IPacket& packet, Args&&... args) {
+    return detail::formatPacketImpl(packet, std::index_sequence_for<Args...>{}, std::forward<Args>(args)...);
 }
 
 #define SCULK_FORMAT_FIELD(FIELD) std::format("{}: {}", #FIELD, formatter::detail::typeToString(FIELD))
 
-#define SCULK_FORMAT_PACKET(...) formatter::format(__VA_ARGS__);
+#define SCULK_FORMAT_PACKET(...) formatter::formatPacket(*this, __VA_ARGS__);
 
 } // namespace formatter
 

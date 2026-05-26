@@ -9,6 +9,7 @@
 #include "sculk/protocol/utility/Base64Url.hpp"
 #include "sculk/protocol/utility/BinaryStream.hpp"
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
+#include "ssl/PemHelper.hpp"
 #include <limits>
 #include <random>
 #include <sculk/reflection/jsonc/reflection.hpp>
@@ -128,10 +129,10 @@ ensureAndFillAllFieldsFull(ConnectionRequest& request, const AuthenticationKeyMa
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                        .identity    = request.getIdentity().toString(),
-                        .displayName = request.getXboxLiveName(),
-                        .XUID        = request.getXboxLiveID().value_or(""),
-                        .sandBoxId   = "RETAIL"
+                          .identity    = request.getIdentity().toString(),
+                          .displayName = request.getXboxLiveName(),
+                          .XUID        = request.getXboxLiveID().value_or(""),
+                          .sandBoxId   = "RETAIL"
                     }
                 }
             }
@@ -145,7 +146,8 @@ ensureAndFillAllFieldsFull(ConnectionRequest& request, const AuthenticationKeyMa
     loginTokenPayload.mid   = request.getPlayFabID();
     loginTokenPayload.tid   = std::string(publicKeyManager.getLoginTokenExpectedPlayFabTitle());
     loginTokenPayload.pfcd  = 0; // Unknown
-    loginTokenPayload.cpk   = publicKeyManager.getClientPropertiesKeyPair()->mPublicKeyPem;
+    loginTokenPayload.cpk =
+        pem_helper::stripPemMarkersAndCompact(publicKeyManager.getClientPropertiesKeyPair()->mPublicKeyPem);
     loginTokenPayload.ap    = 15; // Unknown
     loginTokenPayload.xid   = request.getXboxLiveID().value_or("");
     loginTokenPayload.xname = request.getXboxLiveName();
@@ -190,8 +192,9 @@ ensureAndFillAllFieldsSelfSigned(ConnectionRequest& request, const Authenticatio
 
     auto& loginTokenPayload = request.mLoginToken->mPayload;
 
-    loginTokenPayload.mid     = request.getPlayFabID();
-    loginTokenPayload.cpk     = publicKeyManager.getClientPropertiesKeyPair()->mPublicKeyPem;
+    loginTokenPayload.mid = request.getPlayFabID();
+    loginTokenPayload.cpk =
+        pem_helper::stripPemMarkersAndCompact(publicKeyManager.getClientPropertiesKeyPair()->mPublicKeyPem);
     loginTokenPayload.ap      = 0; // Unknown
     loginTokenPayload.xid     = request.getXboxLiveID().value_or("");
     loginTokenPayload.xname   = request.getXboxLiveName();

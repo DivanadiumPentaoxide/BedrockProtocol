@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "PemHelper.hpp"
 #include "sculk/protocol/utility/Base64Url.hpp"
 #include <cstdint>
 #include <memory>
@@ -40,42 +41,6 @@ struct OsslParamDeleter {
 
 using ParamBldPtr = std::unique_ptr<OSSL_PARAM_BLD, OsslParamBldDeleter>;
 using ParamPtr    = std::unique_ptr<OSSL_PARAM, OsslParamDeleter>;
-
-[[nodiscard]] inline std::string_view trimPemContent(std::string_view pem) {
-    constexpr std::string_view whitespace = " \t\r\n";
-    auto                       begin      = pem.find_first_not_of(whitespace);
-    if (begin == std::string_view::npos) {
-        return {};
-    }
-    auto end = pem.find_last_not_of(whitespace);
-    return pem.substr(begin, end - begin + 1);
-}
-
-[[nodiscard]] inline std::string_view normalizePemForRead(std::string_view pem, bool isPrivate, std::string& ownedPem) {
-    auto trimmedPem = trimPemContent(pem);
-    if (trimmedPem.empty()) {
-        return {};
-    }
-
-    if (trimmedPem.find("-----BEGIN ") != std::string_view::npos) {
-        return trimmedPem;
-    }
-
-    ownedPem.clear();
-    if (isPrivate) {
-        ownedPem.reserve(trimmedPem.size() + 54);
-        ownedPem.append("-----BEGIN PRIVATE KEY-----\n");
-        ownedPem.append(trimmedPem);
-        ownedPem.append("\n-----END PRIVATE KEY-----\n");
-    } else {
-        ownedPem.reserve(trimmedPem.size() + 52);
-        ownedPem.append("-----BEGIN PUBLIC KEY-----\n");
-        ownedPem.append(trimmedPem);
-        ownedPem.append("\n-----END PUBLIC KEY-----\n");
-    }
-
-    return ownedPem;
-}
 
 [[nodiscard]] inline bool isRs256Key(const EVP_PKEY* key) {
     return key && EVP_PKEY_base_id(key) == EVP_PKEY_RSA
@@ -229,7 +194,7 @@ jwkRsaPublicKeyToPem(std::string_view modulusEncoded, std::string_view exponentE
 
 [[nodiscard]] inline PkeyPtr loadPublicKey(std::string_view pem) {
     std::string      ownedPem{};
-    std::string_view normalizedPem = normalizePemForRead(pem, false, ownedPem);
+    std::string_view normalizedPem = pem_helper::normalizePemForRead(pem, false, ownedPem);
     if (normalizedPem.empty()) {
         return PkeyPtr(nullptr, EVP_PKEY_free);
     }
@@ -248,7 +213,7 @@ jwkRsaPublicKeyToPem(std::string_view modulusEncoded, std::string_view exponentE
 
 [[nodiscard]] inline PkeyPtr loadPrivateKey(std::string_view pem) {
     std::string      ownedPem{};
-    std::string_view normalizedPem = normalizePemForRead(pem, true, ownedPem);
+    std::string_view normalizedPem = pem_helper::normalizePemForRead(pem, true, ownedPem);
     if (normalizedPem.empty()) {
         return PkeyPtr(nullptr, EVP_PKEY_free);
     }
