@@ -152,6 +152,7 @@ Result<> AuthenticationKeyManager::generateAndSetLoginTokenKeyPairFull() {
         return error_utils::makeError("Failed to generate login token key pair");
     }
     mLoginTokenKeyPairsAndKeyId = std::make_pair(generateRandomKeyId(), *keyPair);
+    mSigningAuthenticationType  = AuthenticationType::Full;
     return {};
 }
 
@@ -161,6 +162,7 @@ Result<> AuthenticationKeyManager::generateAndSetLoginTokenKeyPairSelfSigned() {
         return error_utils::makeError("Failed to generate login token key pair");
     }
     mSelfSignedLoginTokenKeyPair = *keyPair;
+    mSigningAuthenticationType   = AuthenticationType::SelfSigned;
     return {};
 }
 
@@ -374,6 +376,21 @@ std::future<Result<>> AuthenticationKeyManager::initMojangPublicKeyAsync(std::si
     return std::async(std::launch::async, [this, timeoutSeconds]() {
         return initMojangPublicKeyBlocking(timeoutSeconds);
     });
+}
+
+Result<> AuthenticationKeyManager::initForSign(AuthenticationType authType) {
+    if (authType == AuthenticationType::Full) {
+        if (auto result = generateAndSetLoginTokenKeyPairFull(); !result) {
+            return result;
+        }
+        return generateAndSetLegacyFullCertificateChainKeyPairs();
+    } else if (authType == AuthenticationType::SelfSigned) {
+        if (auto result = generateAndSetLoginTokenKeyPairSelfSigned(); !result) {
+            return result;
+        }
+        return generateAndSetLegacySelfSignedCertificateChainKeyPairs();
+    }
+    return error_utils::makeError("Unsupported authentication type for initialization for signing");
 }
 
 } // namespace sculk::protocol::inline abi_v975

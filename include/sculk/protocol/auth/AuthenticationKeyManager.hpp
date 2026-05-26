@@ -126,6 +126,8 @@ public:
     Result<> initMojangPublicKeyBlocking(std::size_t timeoutSeconds);
 
     std::future<Result<>> initMojangPublicKeyAsync(std::size_t timeoutSeconds);
+
+    Result<> initForSign(AuthenticationType authType);
 };
 
 } // namespace sculk::protocol::inline abi_v975
