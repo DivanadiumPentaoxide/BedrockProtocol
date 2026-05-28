@@ -115,12 +115,7 @@ if(PROTOCOL_ENABLE_CONNECTION)
         GIT_REPOSITORY https://github.com/madler/zlib.git
         GIT_TAG v1.3.2
     )
-    FetchContent_GetProperties(zlib)
-
-    if(NOT zlib_POPULATED)
-        FetchContent_Populate(zlib)
-        add_subdirectory(${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} EXCLUDE_FROM_ALL)
-    endif()
+    FetchContent_MakeAvailable(zlib)
 
     if(NOT TARGET zlibstatic)
         message(FATAL_ERROR "Static zlib target 'zlibstatic' was not generated. Static linking is required.")
@@ -140,9 +135,11 @@ if(PROTOCOL_ENABLE_CONNECTION)
         $<INSTALL_INTERFACE:ZLIB::ZLIB>
     )
 
+    set(PROTOCOL_PREV_BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS}")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries for dependencies" FORCE)
     set(SNAPPY_BUILD_TESTS OFF CACHE BOOL "Disable snappy tests" FORCE)
     set(SNAPPY_BUILD_BENCHMARKS OFF CACHE BOOL "Disable snappy benchmarks" FORCE)
+    set(SNAPPY_FUZZING_BUILD OFF CACHE BOOL "Disable snappy fuzzing targets" FORCE)
     set(SNAPPY_INSTALL OFF CACHE BOOL "Disable snappy install targets" FORCE)
 
     FetchContent_Declare(
@@ -150,21 +147,35 @@ if(PROTOCOL_ENABLE_CONNECTION)
         GIT_REPOSITORY https://github.com/google/snappy.git
         GIT_TAG 1.2.2
     )
-    FetchContent_GetProperties(snappy)
-
-    if(NOT snappy_POPULATED)
-        FetchContent_Populate(snappy)
-        add_subdirectory(${snappy_SOURCE_DIR} ${snappy_BINARY_DIR} EXCLUDE_FROM_ALL)
-    endif()
+    FetchContent_MakeAvailable(snappy)
 
     if(NOT TARGET snappy)
         message(FATAL_ERROR "Static snappy target 'snappy' was not generated.")
     endif()
 
+    foreach(PROTOCOL_SNAPPY_OPTIONAL_TARGET
+        snappy_test_support
+        snappy_unittest
+        snappy_test_tool
+        snappy_benchmark
+        snappy_compress_fuzzer
+        snappy_uncompress_fuzzer
+    )
+        if(TARGET ${PROTOCOL_SNAPPY_OPTIONAL_TARGET})
+            set_target_properties(${PROTOCOL_SNAPPY_OPTIONAL_TARGET} PROPERTIES
+                EXCLUDE_FROM_ALL TRUE
+                EXCLUDE_FROM_DEFAULT_BUILD TRUE
+            )
+        endif()
+    endforeach()
+
     target_link_libraries(Protocol PRIVATE
         $<BUILD_INTERFACE:snappy>
         $<INSTALL_INTERFACE:Snappy::snappy>
     )
+
+    set(BUILD_SHARED_LIBS ${PROTOCOL_PREV_BUILD_SHARED_LIBS} CACHE BOOL "Build shared libraries" FORCE)
+    unset(PROTOCOL_PREV_BUILD_SHARED_LIBS)
 
     FetchContent_Declare(
         RakNet
