@@ -165,6 +165,18 @@ if(PROTOCOL_ENABLE_CONNECTION)
         $<BUILD_INTERFACE:snappy>
         $<INSTALL_INTERFACE:Snappy::snappy>
     )
+
+    FetchContent_Declare(
+        RakNet
+        GIT_REPOSITORY https://github.com/SculkCatalystMC/RakNet
+        GIT_TAG master
+    )
+    FetchContent_MakeAvailable(RakNet)
+    target_include_directories(Protocol PRIVATE $<BUILD_INTERFACE:${RakNet_SOURCE_DIR}/Source>)
+    target_link_libraries(Protocol PRIVATE
+        $<BUILD_INTERFACE:RakNet>
+        $<INSTALL_INTERFACE:RakNet::RakNetLibStatic>
+    )
 endif()
 
 if(PROTOCOL_SOURCES)

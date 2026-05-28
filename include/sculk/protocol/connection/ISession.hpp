@@ -6,15 +6,20 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
-#include <cstdint>
+#include "BatchedNetworkPeer.hpp"
 
 namespace sculk::protocol::inline abi_v975 {
 
-enum class LoginStatus : std::uint8_t {
-    Mojang           = 0,
-    SelfSigned       = 1,
-    MojangLegacy     = 2,
-    SelfSignedLegacy = 3,
+class ISession {
+    BatchedNetworkPeer mPeer{};
+
+public:
+    virtual ~ISession() = default;
+
+public:
+    [[nodiscard]] constexpr BatchedNetworkPeer& getPeer() { return mPeer; }
+
+    [[nodiscard]] constexpr const BatchedNetworkPeer& getPeer() const { return mPeer; }
 };
 
 } // namespace sculk::protocol::inline abi_v975

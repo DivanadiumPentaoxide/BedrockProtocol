@@ -114,23 +114,11 @@ Result<> ClientProperties::verify(std::string_view publicKeyPem) const {
     return {};
 }
 
-Result<> ClientProperties::sign(const AuthenticationKeyManager& authenticationKeyManager) {
+Result<> ClientProperties::sign(const PemKeyPair& clientKeyPair) {
     SCULK_CLIENT_PROPERTIES_SERIALIZE_OPTION_INIT();
 
-    auto keyPair = authenticationKeyManager.getClientPropertiesKeyPair();
-    if (!keyPair) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-        return error_utils::makeError(
-            std::format(
-                "Failed to get client properties key pair from authentication key manager: {}",
-                keyPair.error().mMessage
-            )
-        );
-#else
-        return error_utils::makeError("Failed to get client properties key pair from authentication key manager");
-#endif
-    }
-    mHeader.x5u = pem_helper::stripPemMarkersAndCompact(keyPair->mPublicKeyPem);
+    mHeader.alg = "ES384";
+    mHeader.x5u = pem_helper::stripPemMarkersAndCompact(clientKeyPair.mPublicKeyPem);
 
     SCULK_CLIENT_PROPERTIES_CREATE_JSON(header, mHeader);
     SCULK_CLIENT_PROPERTIES_SERIALIZE(header, alg);
@@ -188,7 +176,7 @@ Result<> ClientProperties::sign(const AuthenticationKeyManager& authenticationKe
     mRawPayload = base64url::encode(payloadJson.dump(-1));
 
     std::string signingInput = std::format("{}.{}", mRawHeader, mRawPayload);
-    if (!es384::signES384Signature(signingInput, keyPair->mPrivateKeyPem, mSignature)) {
+    if (!es384::signES384Signature(signingInput, clientKeyPair.mPrivateKeyPem, mSignature)) {
         return error_utils::makeError("Failed to sign client properties");
     }
     return {};

@@ -60,6 +60,12 @@ public:
         appendBytes(reinterpret_cast<const std::byte*>(origin), num);
     }
 
+    constexpr void writeAndMoveBuffer(std::vector<std::byte>&& buffer) {
+        const std::size_t oldSize = mBuffer.size();
+        mBuffer.resize(oldSize + buffer.size());
+        std::memcpy(mBuffer.data() + oldSize, buffer.data(), buffer.size());
+    }
+
     constexpr void writeBool(bool value) { write(value); }
 
     constexpr void writeByte(std::uint8_t value) { write(value); }

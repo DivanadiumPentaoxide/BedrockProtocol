@@ -6,3 +6,38 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "BatchedPackets.hpp"
+#include "RakPeerInterface.h"
+
+namespace sculk::protocol::inline abi_v975 {
+
+class ISession;
+
+enum class CompressionType : std::int8_t {
+    None   = -1,
+    Zlib   = 0,
+    Snappy = 1,
+};
+
+class BatchedNetworkPeer {
+    bool                      mIsCompressed{};
+    CompressionType           mCompressionAlgorithm{};
+    bool                      mIsEncrypted{};
+    RakNet::RakPeerInterface* mRakPeer{};
+
+    friend class ISession;
+
+public:
+    // TODO: Implement the constructor
+
+    ~BatchedNetworkPeer();
+
+public:
+    [[nodiscard]] constexpr bool isCompressed() const { return mIsCompressed; }
+
+    [[nodiscard]] constexpr bool isEncrypted() const { return mIsEncrypted; }
+
+    void sendBatchedPackets(const BatchedPackets& packets) const;
+};
+
+} // namespace sculk::protocol::inline abi_v975

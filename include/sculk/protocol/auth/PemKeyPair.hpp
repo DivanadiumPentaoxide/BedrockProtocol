@@ -6,22 +6,22 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
-#include "sculk/protocol/codec/packet/IPacket.hpp"
-#include "sculk/protocol/utility/BinaryStream.hpp"
-#include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
-#include <memory>
-#include <vector>
+#include "sculk/protocol/utility/Result.hpp"
+#include <string>
 
 namespace sculk::protocol::inline abi_v975 {
 
-class BatchedPackets {
-public:
-    std::vector<std::unique_ptr<IPacket>> mPackets{};
-
-public:
-    void serialize(BinaryStream& stream) const;
-
-    [[nodiscard]] Result<> deserialize(ReadOnlyBinaryStream& stream);
+struct PemKeyPair {
+    std::string mPublicKeyPem{};
+    std::string mPrivateKeyPem{};
 };
+
+namespace ssl {
+
+[[nodiscard]] Result<PemKeyPair> randomES384KeyPair();
+
+[[nodiscard]] Result<PemKeyPair> randomRS256KeyPair();
+
+} // namespace ssl
 
 } // namespace sculk::protocol::inline abi_v975

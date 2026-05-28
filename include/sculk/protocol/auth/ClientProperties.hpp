@@ -102,8 +102,6 @@ public:
     std::string mSignature{};
 
 public:
-    [[nodiscard]] const Payload& getPayload() const { return mPayload; }
-
     [[nodiscard]] const std::vector<AnimatedImage>& getAnimatedImageData() const { return mPayload.mAnimatedImageData; }
 
     [[nodiscard]] std::string_view getArmSize() const { return mPayload.mArmSize; }
@@ -203,7 +201,7 @@ public:
 public:
     [[nodiscard]] Result<> verify(std::string_view publicKeyPem) const;
 
-    [[nodiscard]] Result<> sign(const AuthenticationKeyManager& authenticationKeyManager);
+    [[nodiscard]] Result<> sign(const PemKeyPair& clientKeyPair);
 
     [[nodiscard]] std::string toString() const { return std::format("{}.{}.{}", mRawHeader, mRawPayload, mSignature); }
 

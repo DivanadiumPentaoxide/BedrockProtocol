@@ -30,10 +30,17 @@ struct serializer<sculk::protocol::AuthenticationType> {
 
 namespace sculk::protocol::inline abi_v975 {
 
+#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
+#define SCULK_CONNECTION_REQUEST_ERROR(STATUS, MESSAGE)                                                                \
+    error_utils::makeError(std::format(MESSAGE ": {}", STATUS.error().mMessage))
+#else
+#define SCULK_CONNECTION_REQUEST_ERROR(STATUS, MESSAGE) error_utils::makeError(MESSAGE);
+#endif
+
 std::optional<std::string> ConnectionRequest::getXboxLiveID() const {
     std::string xuid{};
-    if (mLoginToken && mLoginToken->mHeader.alg == "RS256") {
-        xuid = mLoginToken->mPayload.xid;
+    if (!mLoginToken.isEmpty() && mLoginToken.mHeader.alg == "RS256") {
+        xuid = mLoginToken.mPayload.xid;
     }
     if (mLegacyCertificateChain && mLegacyCertificateChain->mClientCertificate.has_value()
         && mLegacyCertificateChain->mMojangCertificate.has_value()) {
@@ -46,8 +53,8 @@ std::optional<std::string> ConnectionRequest::getXboxLiveID() const {
 }
 
 std::string ConnectionRequest::getXboxLiveName() const {
-    if (mLoginToken) {
-        return mLoginToken->mPayload.xname;
+    if (!mLoginToken.isEmpty()) {
+        return mLoginToken.mPayload.xname;
     }
     if (mLegacyCertificateChain) {
         return mLegacyCertificateChain->mLoginCertificate.mPayload.extraData->displayName;
@@ -68,40 +75,34 @@ Identity ConnectionRequest::getIdentity() const {
 }
 
 std::string ConnectionRequest::getPlayFabID() const {
-    if (mLoginToken) {
-        return mLoginToken->mPayload.mid;
+    if (!mLoginToken.isEmpty()) {
+        return mLoginToken.mPayload.mid;
     }
     return mClientProperties.mPayload.mPlayFabId;
 }
 
-Result<LoginStatus> ConnectionRequest::verify(const AuthenticationKeyManager& authenticationKeyManager) const {
-    if (mLoginToken) {
-        if (auto status = mClientProperties.verify(mLoginToken->getClientPublicKey()); !status) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            return error_utils::makeError(
-                std::format("Client properties verification failed: {}", status.error().mMessage)
-            );
-#else
-            return error_utils::makeError("Client properties verification failed");
-#endif
-        }
-        return mLoginToken->verify(authenticationKeyManager);
+Result<> ConnectionRequest::verifyFull(const AuthenticationKeyManager& authenticationKeyManager) const {
+    if (auto status = mLoginToken.verify(authenticationKeyManager); !status) {
+        return SCULK_CONNECTION_REQUEST_ERROR(status, "LoginToken verification failed");
     }
 
-    if (mLegacyCertificateChain) {
-        if (auto status = mClientProperties.verify(mLegacyCertificateChain->getClientPublicKey()); !status) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            return error_utils::makeError(
-                std::format("Client properties verification failed: {}", status.error().mMessage)
-            );
-#else
-            return error_utils::makeError("Client properties verification failed");
-#endif
-        }
-        return mLegacyCertificateChain->verify(authenticationKeyManager);
+    if (auto status = mClientProperties.verify(mLoginToken.getClientPublicKey()); !status) {
+        return SCULK_CONNECTION_REQUEST_ERROR(status, "ClientProperties verification failed");
     }
 
-    return error_utils::makeError("ConnectionRequest must have either a login token or a legacy certificate chain");
+    return {};
+}
+
+Result<> ConnectionRequest::verifySelfSigned(std::chrono::seconds leeway) const {
+    if (auto status = mLoginToken.verifySelfSigned(leeway); !status) {
+        return SCULK_CONNECTION_REQUEST_ERROR(status, "LoginToken verification failed");
+    }
+
+    if (auto status = mClientProperties.verify(mLoginToken.getClientPublicKey()); !status) {
+        return SCULK_CONNECTION_REQUEST_ERROR(status, "ClientProperties verification failed");
+    }
+
+    return {};
 }
 
 namespace {
@@ -117,58 +118,31 @@ inline Identity randomIdentity() {
     return Identity{.mHighBits = randomInt<std::uint64_t>(), .mLowBits = randomInt<std::uint64_t>()};
 }
 
-inline Result<>
-ensureAndFillAllFieldsFull(ConnectionRequest& request, const AuthenticationKeyManager& publicKeyManager) {
-    if (!request.mLoginToken) {
-        request.mLoginToken.emplace();
-    } else if (!request.mLegacyCertificateChain) {
-        request.mLegacyCertificateChain = LegacyCertificateChain{
-            .mLoginCertificate = Certificate{
-                .mPayload = {
-                    .randomNonce = randomInt(),
-                    .iss         = "Mojang",
-                    .iat         = 0,
-                    .extraData   = Certificate::ExtraData{
-                        .identity    = request.getIdentity().toString(),
-                        .displayName = request.getXboxLiveName(),
-                        .XUID        = request.getXboxLiveID().value_or(""),
-                        .sandBoxId   = "RETAIL"
-                    }
-                }
-            }
-        };
-        request.mClientProperties.mPayload.mPlayFabId = request.mLoginToken->mPayload.mid;
+inline void ensureAndFillLoginToken(ConnectionRequest& request) {
+    auto& payload = request.mLoginToken.mPayload;
+
+    payload.mid = request.getPlayFabID();
+    payload.ap  = 0; // Unknown, seems to be 0
+    if (payload.xid.empty() && request.mLegacyCertificateChain) {
+        payload.xid = request.mLegacyCertificateChain->mLoginCertificate.mPayload.extraData->XUID;
     }
-
-    auto& loginTokenPayload = request.mLoginToken->mPayload;
-    loginTokenPayload.sub   = ""; // Unknown
-    loginTokenPayload.ipt   = ""; // Unknown
-    loginTokenPayload.mid   = request.getPlayFabID();
-    loginTokenPayload.tid   = std::string(publicKeyManager.getLoginTokenExpectedPlayFabTitle());
-    loginTokenPayload.pfcd  = 0;  // Unknown
-    loginTokenPayload.ap    = 15; // Unknown
-    loginTokenPayload.xid   = request.getXboxLiveID().value_or("");
-    loginTokenPayload.xname = request.getXboxLiveName();
-    loginTokenPayload.iss   = std::string(publicKeyManager.getLoginTokenExpectedIssuer());
-    loginTokenPayload.aud   = "api://auth-minecraft-services/multiplayer";
-
-    if (!request.mLegacyCertificateChain->mClientCertificate) {
-        request.mLegacyCertificateChain->mClientCertificate = Certificate{.mPayload = {.certificateAuthority = true}};
+    if (!payload.xname.empty()) {
+        payload.xname = request.getXboxLiveName();
     }
-
-    if (!request.mLegacyCertificateChain->mMojangCertificate) {
-        request.mLegacyCertificateChain->mMojangCertificate = Certificate{
-            .mPayload = {.certificateAuthority = true, .randomNonce = randomInt(), .iss = "Mojang", .iat = 0}
-        };
+    payload.aud = "api://auth-minecraft-services/multiplayer";
+    if (!payload.leguuid) {
+        payload.leguuid = randomIdentity().toString(); // Unknown field, seems to be a random UUID
     }
+    payload.nid   = ""; // Unknown field, seems to be empty
+    payload.nname = ""; // Unknown field, seems to be empty
+    payload.pid   = ""; // Unknown field, seems to be empty
+    payload.pname = ""; // Unknown field, seems to be empty
 
-    return {};
+    request.mClientProperties.mPayload.mPlayFabId = payload.mid;
 }
 
-inline Result<> ensureAndFillAllFieldsSelfSigned(ConnectionRequest& request) {
-    if (!request.mLoginToken) {
-        request.mLoginToken.emplace();
-    } else if (!request.mLegacyCertificateChain) {
+inline void ensureAndFillLegacyChain(ConnectionRequest& request) {
+    if (!request.mLegacyCertificateChain) {
         request.mLegacyCertificateChain = LegacyCertificateChain{
             .mLoginCertificate = Certificate{
                 .mPayload = {
@@ -176,7 +150,7 @@ inline Result<> ensureAndFillAllFieldsSelfSigned(ConnectionRequest& request) {
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                        .identity    = request.getIdentity().toString(),
+                        .identity    = "", // Empty identity
                         .displayName = request.getXboxLiveName(),
                         .XUID        = "",      // Empty XUID
                         .sandBoxId   = "RETAIL" // Always "RETAIL"
@@ -184,93 +158,32 @@ inline Result<> ensureAndFillAllFieldsSelfSigned(ConnectionRequest& request) {
                 }
             }
         };
-        request.mClientProperties.mPayload.mPlayFabId = request.mLoginToken->mPayload.mid;
+    } else {
+        auto& extraData    = *request.mLegacyCertificateChain->mLoginCertificate.mPayload.extraData;
+        extraData.identity = "";
+        extraData.XUID     = "";
     }
-
-    auto& loginTokenPayload = request.mLoginToken->mPayload;
-
-    loginTokenPayload.mid = request.getPlayFabID();
-    loginTokenPayload.ap  = 0; // Unknown, seems to be 0 for self-signed tokens
-    if (loginTokenPayload.xid.empty()) {
-        loginTokenPayload.xid = request.mLegacyCertificateChain->mLoginCertificate.mPayload.extraData->XUID;
-    }
-    loginTokenPayload.xname = request.getXboxLiveName();
-    loginTokenPayload.aud   = "api://auth-minecraft-services/multiplayer";
-    if (!loginTokenPayload.leguuid) {
-        loginTokenPayload.leguuid = randomIdentity().toString(); // Unknown
-    }
-    loginTokenPayload.nid   = ""; // Unknown
-    loginTokenPayload.nname = ""; // Unknown
-    loginTokenPayload.pid   = ""; // Unknown
-    loginTokenPayload.pname = ""; // Unknown
-
-    return {};
 }
 
 } // namespace
 
-Result<> ConnectionRequest::sign(const AuthenticationKeyManager& authenticationKeyManager) {
-    if (!mLoginToken && !mLegacyCertificateChain) {
-        return error_utils::makeError(
-            "ConnectionRequest must have either a login token or a legacy certificate chain to sign"
-        );
+Result<> ConnectionRequest::selfSign(const PemKeyPair& clientKeyPair, bool includeLegacyChain) {
+    ensureAndFillLoginToken(*this);
+    if (auto status = mLoginToken.selfSign(clientKeyPair); !status) {
+        return SCULK_CONNECTION_REQUEST_ERROR(status, "Login token signing failed");
     }
 
-    mAuthenticationType = authenticationKeyManager.getSigningAuthenticationType();
-    if (mAuthenticationType == AuthenticationType::Full) {
-        if (auto status = ensureAndFillAllFieldsFull(*this, authenticationKeyManager); !status) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            return error_utils::makeError(
-                std::format("Failed to ensure and fill all fields for full authentication: {}", status.error().mMessage)
-            );
-#else
-            return error_utils::makeError("Failed to ensure and fill all fields for full authentication");
-#endif
-        }
-    } else if (mAuthenticationType == AuthenticationType::SelfSigned) {
-        if (auto status = ensureAndFillAllFieldsSelfSigned(*this); !status) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            return error_utils::makeError(
-                std::format(
-                    "Failed to ensure and fill all fields for self-signed authentication: {}",
-                    status.error().mMessage
-                )
-            );
-#else
-            return error_utils::makeError("Failed to ensure and fill all fields for self-signed authentication");
-#endif
-        }
+    if (auto status = mClientProperties.sign(clientKeyPair); !status) {
+        return SCULK_CONNECTION_REQUEST_ERROR(status, "Client properties signing failed");
     }
 
-    if (mLoginToken && authenticationKeyManager._loginTokenSigningInitialized(mAuthenticationType)) {
-        if (auto status = mLoginToken->sign(authenticationKeyManager); !status) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            return error_utils::makeError(std::format("Login token signing failed: {}", status.error().mMessage));
-#else
-            return error_utils::makeError("Login token signing failed");
-#endif
-        }
+    if (!includeLegacyChain) {
+        return {};
     }
 
-    if (mLegacyCertificateChain
-        && authenticationKeyManager._legacyCertificateChainSigningInitialized(mAuthenticationType)) {
-        if (auto status = mLegacyCertificateChain->sign(authenticationKeyManager); !status) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            return error_utils::makeError(
-                std::format("Legacy certificate chain signing failed: {}", status.error().mMessage)
-            );
-#else
-            return error_utils::makeError("Legacy certificate chain signing failed");
-#endif
-        }
-    }
-
-    if (auto status = mClientProperties.sign(authenticationKeyManager); !status) {
-#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-        return error_utils::makeError(std::format("Client properties signing failed: {}", status.error().mMessage));
-#else
-        return error_utils::makeError("Client properties signing failed");
-#endif
+    ensureAndFillLegacyChain(*this);
+    if (auto status = mLegacyCertificateChain->selfSign(clientKeyPair); !status) {
+        return SCULK_CONNECTION_REQUEST_ERROR(status, "Legacy certificate chain signing failed");
     }
 
     return {};
@@ -281,8 +194,8 @@ std::string ConnectionRequest::toString() const {
     BinaryStream           stream(buffer);
 
     jsonc::json authJson = {
-        {"AuthenticationType", static_cast<int>(mAuthenticationType)     },
-        {"Token",              mLoginToken ? mLoginToken->toString() : ""}
+        {"AuthenticationType", static_cast<int>(mAuthenticationType)},
+        {"Token",              mLoginToken.toString()               }
     };
     if (mLegacyCertificateChain) {
         authJson["Certificate"] = mLegacyCertificateChain->toString();
@@ -387,19 +300,14 @@ Result<ConnectionRequest> ConnectionRequest::fromString(std::string_view rawRequ
 #endif
     }
 
-    return ConnectionRequest::create(
-        authType,
-        std::move(legacyCertificate),
-        loginToken.empty() ? std::nullopt : std::make_optional(std::move(loginToken)),
-        std::move(clientProperties)
-    );
+    return ConnectionRequest::create(authType, legacyCertificate, loginToken, clientProperties);
 }
 
 Result<ConnectionRequest> ConnectionRequest::create(
-    AuthenticationType           authenticationType,
-    std::optional<std::string>&& legacyCertificateChainString,
-    std::optional<std::string>&& loginTokenString,
-    std::string&&                clientPropertiesString
+    AuthenticationType                authenticationType,
+    const std::optional<std::string>& legacyCertificateChainString,
+    std::string_view                  loginTokenString,
+    std::string_view                  clientPropertiesString
 ) {
     std::optional<LegacyCertificateChain> legacyCertificateChain{};
     if (legacyCertificateChainString && *legacyCertificateChainString != "{\"chain\":[\"..\"]}\n") {
@@ -416,26 +324,20 @@ Result<ConnectionRequest> ConnectionRequest::create(
         legacyCertificateChain = std::move(*certChain);
     }
 
-    std::optional<LoginToken> loginToken{};
-    if (loginTokenString) {
-        auto token = LoginToken::fromString(*loginTokenString);
+    auto loginToken = LoginToken::fromString(loginTokenString);
+    if (!loginToken) {
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-        if (!token) {
-            return error_utils::makeError(std::format("Failed to parse login token: {}", token.error().mMessage));
-        }
+        return error_utils::makeError(std::format("Failed to parse login token: {}", loginToken.error().mMessage));
 #else
-        if (!token) {
-            return error_utils::makeError("Failed to parse login token");
-        }
+        return error_utils::makeError("Failed to parse login token");
 #endif
-        loginToken = std::move(*token);
     }
 
-    if (!legacyCertificateChain && !loginToken) {
+    if (!legacyCertificateChain && loginToken->isEmpty()) {
         return error_utils::makeError("ConnectionRequest must have either a legacy certificate chain or a login token");
     }
 
-    auto clientProperties = ClientProperties::fromString(std::move(clientPropertiesString));
+    auto clientProperties = ClientProperties::fromString(clientPropertiesString);
     if (!clientProperties) {
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
         return error_utils::makeError(
@@ -449,7 +351,7 @@ Result<ConnectionRequest> ConnectionRequest::create(
     return ConnectionRequest{
         .mAuthenticationType     = authenticationType,
         .mLegacyCertificateChain = std::move(legacyCertificateChain),
-        .mLoginToken             = std::move(loginToken),
+        .mLoginToken             = std::move(*loginToken),
         .mClientProperties       = std::move(*clientProperties)
     };
 }

@@ -6,28 +6,21 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/connection/BatchedPackets.hpp"
-#include "compression/Snappy.hpp"
-#include "compression/Zlib.hpp"
 #include "sculk/protocol/codec/MinecraftPackets.hpp"
-#include "sculk/protocol/utility/BinaryStream.hpp"
-#include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
 
 namespace sculk::protocol::inline abi_v975 {
 
-std::vector<std::byte> BatchedPackets::serialize() const {
-    std::vector<std::byte> data{};
-    BinaryStream           stream{data};
+void BatchedPackets::serialize(BinaryStream& stream) const {
     for (const auto& packet : mPackets) {
-        BinaryStream packetStream{data};
+        std::vector<std::byte> data{};
+        BinaryStream           packetStream{data};
         packet->writeWithHeader(packetStream);
         stream.writeUnsignedVarInt(static_cast<std::uint32_t>(packetStream.size()));
-        stream.writeBytes(packetStream.data(), packetStream.size());
+        stream.writeAndMoveBuffer(std::move(data));
     }
-    return data;
 }
 
-Result<> BatchedPackets::deserialize(const std::vector<std::byte>& data) {
-    ReadOnlyBinaryStream stream{data};
+Result<> BatchedPackets::deserialize(ReadOnlyBinaryStream& stream) {
     while (stream.hasDataLeft()) {
         std::uint32_t packetLength{};
 

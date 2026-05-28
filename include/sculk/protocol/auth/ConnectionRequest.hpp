@@ -11,7 +11,6 @@
 #include "ClientProperties.hpp"
 #include "Identity.hpp"
 #include "LegacyCertificateChain.hpp"
-#include "LoginStatus.hpp"
 #include "LoginToken.hpp"
 #include "sculk/protocol/utility/Result.hpp"
 #include <optional>
@@ -23,7 +22,7 @@ class ConnectionRequest {
 public:
     AuthenticationType                    mAuthenticationType{};
     std::optional<LegacyCertificateChain> mLegacyCertificateChain{};
-    std::optional<LoginToken>             mLoginToken{};
+    LoginToken                            mLoginToken{};
     ClientProperties                      mClientProperties{};
 
 public:
@@ -36,9 +35,11 @@ public:
     [[nodiscard]] std::string getPlayFabID() const;
 
 public:
-    [[nodiscard]] Result<LoginStatus> verify(const AuthenticationKeyManager& publicKeyManager) const;
+    [[nodiscard]] Result<> verifyFull(const AuthenticationKeyManager& publicKeyManager) const;
 
-    [[nodiscard]] Result<> sign(const AuthenticationKeyManager& authenticationKeyManager);
+    [[nodiscard]] Result<> verifySelfSigned(std::chrono::seconds leeway) const;
+
+    [[nodiscard]] Result<> selfSign(const PemKeyPair& clientKeyPair, bool includeLegacyChain = false);
 
     [[nodiscard]] std::string toString() const;
 
@@ -46,10 +47,10 @@ public:
     [[nodiscard]] static Result<ConnectionRequest> fromString(std::string_view rawRequest);
 
     [[nodiscard]] static Result<ConnectionRequest> create(
-        AuthenticationType           authenticationType,
-        std::optional<std::string>&& legacyCertificateChainString,
-        std::optional<std::string>&& loginTokenString,
-        std::string&&                clientPropertiesString
+        AuthenticationType                authenticationType,
+        const std::optional<std::string>& legacyCertificateChainString,
+        std::string_view                  loginTokenString,
+        std::string_view                  clientPropertiesString
     );
 };
 

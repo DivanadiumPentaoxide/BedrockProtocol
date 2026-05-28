@@ -7,7 +7,7 @@
 
 #pragma once
 #include "AuthenticationKeyManager.hpp"
-#include "LoginStatus.hpp"
+#include "PemKeyPair.hpp"
 #include "sculk/protocol/utility/Result.hpp"
 #include <chrono>
 #include <format>
@@ -51,23 +51,9 @@ public:
     std::string mSignature{};
 
 public:
-    [[nodiscard]] bool checkTimeValidity(std::chrono::seconds leeway, std::chrono::system_clock::time_point now) const {
-        auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-        if (mPayload.nbf > nowSec + leeway.count()) {
-            return false;
-        }
-        if (nowSec - leeway.count() > mPayload.exp) {
-            return false;
-        }
-        if (mPayload.iat && *mPayload.iat > nowSec + leeway.count()) {
-            return false;
-        }
-        return true;
-    }
+    [[nodiscard]] bool checkTimeValidity(std::chrono::seconds leeway, std::chrono::system_clock::time_point now) const;
 
-    [[nodiscard]] bool checkIssuer(std::string_view expectedIssuer) const {
-        return mPayload.iss && *mPayload.iss == expectedIssuer;
-    }
+    [[nodiscard]] bool checkIssuer(std::string_view expectedIssuer) const;
 
     [[nodiscard]] std::string toString() const { return std::format("{}.{}.{}", mRawHeader, mRawPayload, mSignature); }
 
@@ -91,15 +77,11 @@ public:
                                   : mLoginCertificate.mPayload.identityPublicKey;
     }
 
-    [[nodiscard]] Result<LoginStatus> verify(const AuthenticationKeyManager& authenticationKeyManager) const;
+    [[nodiscard]] Result<> verify(std::chrono::seconds leeway) const;
 
-    [[nodiscard]] Result<>
-    signFull(const AuthenticationKeyManager& authenticationKeyManager, std::chrono::system_clock::time_point now);
+    [[nodiscard]] Result<> verifySelfSigned(std::chrono::seconds leeway) const;
 
-    [[nodiscard]] Result<>
-    signSelfSigned(const AuthenticationKeyManager& authenticationKeyManager, std::chrono::system_clock::time_point now);
-
-    [[nodiscard]] Result<> sign(const AuthenticationKeyManager& authenticationKeyManager);
+    [[nodiscard]] Result<> selfSign(const PemKeyPair& clientKeyPair);
 
     [[nodiscard]] std::string toString() const;
 

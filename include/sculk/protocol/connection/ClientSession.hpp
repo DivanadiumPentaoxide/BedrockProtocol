@@ -6,3 +6,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "ISession.hpp"
+
+namespace sculk::protocol::inline abi_v975 {
+
+class ClientSession : public ISession {};
+
+}

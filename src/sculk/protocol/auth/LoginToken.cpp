@@ -90,14 +90,18 @@ namespace sculk::protocol::inline abi_v975 {
     }
 #endif
 
-Result<LoginStatus> LoginToken::verify(const AuthenticationKeyManager& authenticationKeyManager) const {
-    auto        authType     = authenticationKeyManager.getVerifyAuthenticationType();
+Result<> LoginToken::verify(const AuthenticationKeyManager& authenticationKeyManager) const {
+    if (isEmpty()) {
+        return error_utils::makeError("Login token is empty");
+    }
+
     std::string signingInput = std::format("{}.{}", mRawHeader, mRawPayload);
 
-    auto timeNow = authenticationKeyManager.getValidityTime();
-    auto leeway  = authenticationKeyManager.getValidityLeeway();
-    if (mPayload.exp
-        < std::chrono::duration_cast<std::chrono::seconds>((timeNow - leeway).time_since_epoch()).count()) {
+    auto timeNow = std::chrono::system_clock::now();
+    auto leeway  = authenticationKeyManager.getLeeway();
+
+    auto minExpCount = std::chrono::duration_cast<std::chrono::seconds>((timeNow - leeway).time_since_epoch()).count();
+    if (mPayload.exp < minExpCount) {
         return error_utils::makeError("Login token has expired");
     }
 
@@ -105,123 +109,92 @@ Result<LoginStatus> LoginToken::verify(const AuthenticationKeyManager& authentic
         return error_utils::makeError("Login token audience is invalid");
     }
 
-    if (authType == AuthenticationType::SelfSigned) {
-        if (mHeader.alg == "ES384") {
-            SCULK_LOGIN_TOKEN_CHECK_HEADER(x5u);
-            SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(leguuid);
-            SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(nid);
-            SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(nname);
-            SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(pid);
-            SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(pname);
-
-            if (*mHeader.x5u != mPayload.cpk) {
-                return error_utils::makeError("Login token 'x5u' header field does not match 'cpk' payload field");
-            }
-
-            if (!es384::verifyES384Signature(signingInput, mSignature, *mHeader.x5u)) {
-                return error_utils::makeError("Failed to verify login token signature");
-            }
-            return LoginStatus::SelfSigned;
-        }
+    if (mHeader.alg != "RS256") {
+        return error_utils::makeError("Unsupported algorithm in login token header for full authentication");
     }
 
-    if (authType == AuthenticationType::Full || authType == AuthenticationType::SelfSigned) {
-        if (mHeader.alg != "RS256") {
-            return error_utils::makeError("Unsupported algorithm in login token header for full authentication");
-        }
-        SCULK_LOGIN_TOKEN_CHECK_HEADER(kid);
-        if (!mHeader.typ || *mHeader.typ != "JWT") {
-            return error_utils::makeError("Login token 'typ' header field is empty or invalid");
-        }
-
-        SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(sub);
-        SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(ipt);
-        SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(iat);
-        SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(tid);
-        SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(pfcd);
-        SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(iss);
-
-        if (*mPayload.iat
-            > std::chrono::duration_cast<std::chrono::seconds>(timeNow.time_since_epoch()).count() + leeway.count()) {
-            return error_utils::makeError("Login token 'iat' claim is in the future");
-        }
-
-        if (*mPayload.iss != authenticationKeyManager.getLoginTokenExpectedIssuer()) {
-            return error_utils::makeError("Login token 'iss' claim is invalid");
-        }
-        if (*mPayload.tid != authenticationKeyManager.getLoginTokenExpectedPlayFabTitle()) {
-            return error_utils::makeError("Login token 'tid' claim does not match expected PlayFab title ID");
-        }
-
-        auto keyId = authenticationKeyManager.getLoginTokenPublicKeyPemByKeyId(*mHeader.kid);
-        if (!keyId) {
-            return error_utils::makeError("No Mojang public key found for key ID in login token header");
-        }
-
-        if (!rs256::verifyRS256Signature(signingInput, mSignature, *keyId)) {
-            return error_utils::makeError("Failed to verify login token signature");
-        }
-        return LoginStatus::Mojang;
+    SCULK_LOGIN_TOKEN_CHECK_HEADER(kid);
+    if (!mHeader.typ || *mHeader.typ != "JWT") {
+        return error_utils::makeError("Login token 'typ' header field is empty or invalid");
     }
 
-    return error_utils::makeError("Guest authentication does not support login token verification");
-}
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(sub);
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(ipt);
 
-Result<> LoginToken::signFull(const AuthenticationKeyManager& authenticationKeyManager) {
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTION_INIT();
-
-    auto keyPair = authenticationKeyManager.getFullLoginTokenKeyPairAndKeyId(mHeader.kid.emplace());
-    if (!keyPair) {
-        return error_utils::makeError("No login token key pair available for signing");
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(iat);
+    auto maxNowCount = std::chrono::duration_cast<std::chrono::seconds>((timeNow + leeway).time_since_epoch()).count();
+    if (*mPayload.iat > maxNowCount) {
+        return error_utils::makeError("Login token 'iat' claim is in the future");
     }
 
-    mHeader.alg = "RS256";
-    mHeader.typ = "JWT";
-
-    SCULK_LOGIN_TOKEN_CREATE_JSON(header, mHeader);
-    SCULK_LOGIN_TOKEN_SERIALIZE(header, alg);
-    SCULK_LOGIN_TOKEN_SERIALIZE(header, kid);
-    SCULK_LOGIN_TOKEN_SERIALIZE(header, typ);
-    mRawHeader = base64url::encode(headerJson.dump(-1));
-
-    auto clientKeyPair = authenticationKeyManager.getClientPropertiesKeyPair();
-    if (!clientKeyPair) {
-        return error_utils::makeError("No client properties key pair available for signing");
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(tid);
+    if (*mPayload.tid != authenticationKeyManager.getExpectedPlayFabTitle()) {
+        return error_utils::makeError("Login token 'tid' claim does not match expected PlayFab title ID");
     }
-    mPayload.cpk = pem_helper::stripPemMarkersAndCompact(clientKeyPair->mPublicKeyPem);
-    SCULK_LOGIN_TOKEN_CREATE_JSON(payload, mPayload);
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTIONAL(payload, sub);
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTIONAL(payload, ipt);
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTIONAL(payload, iat);
-    SCULK_LOGIN_TOKEN_SERIALIZE(payload, mid);
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTIONAL(payload, tid);
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTIONAL(payload, pfcd);
-    SCULK_LOGIN_TOKEN_SERIALIZE(payload, cpk);
-    SCULK_LOGIN_TOKEN_SERIALIZE(payload, ap);
-    SCULK_LOGIN_TOKEN_SERIALIZE(payload, xid);
-    SCULK_LOGIN_TOKEN_SERIALIZE(payload, xname);
-    SCULK_LOGIN_TOKEN_SERIALIZE(payload, exp);
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTIONAL(payload, iss);
-    SCULK_LOGIN_TOKEN_SERIALIZE(payload, aud);
-    mRawPayload = base64url::encode(payloadJson.dump(-1));
 
-    auto signingInput = std::format("{}.{}", mRawHeader, mRawPayload);
-    if (!rs256::signRS256Signature(signingInput, keyPair->mPrivateKeyPem, mSignature)) {
-        return error_utils::makeError("Failed to sign login token with RS256");
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(pfcd);
+
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(iss);
+    if (*mPayload.iss != authenticationKeyManager.getExpectedIssuer()) {
+        return error_utils::makeError("Login token 'iss' claim is invalid");
+    }
+
+    auto keyId = authenticationKeyManager.getPublicKeyPemByKeyId(*mHeader.kid);
+    if (!keyId) {
+        return error_utils::makeError("No Mojang public key found for key ID in login token header");
+    }
+
+    if (!rs256::verifyRS256Signature(signingInput, mSignature, *keyId)) {
+        return error_utils::makeError("Failed to verify login token signature");
     }
     return {};
 }
 
-Result<> LoginToken::signSelfSigned(const AuthenticationKeyManager& authenticationKeyManager) {
-    SCULK_LOGIN_TOKEN_SERIALIZE_OPTION_INIT();
-
-    auto keyPair = authenticationKeyManager.getClientPropertiesKeyPair();
-    if (!keyPair) {
-        return error_utils::makeError("No self-signed login token key pair available for signing");
+Result<> LoginToken::verifySelfSigned(std::chrono::seconds leeway) const {
+    if (isEmpty()) {
+        return error_utils::makeError("Login token is empty");
     }
 
-    mHeader.alg = "ES384";
-    mHeader.x5u = pem_helper::stripPemMarkersAndCompact(keyPair->mPublicKeyPem);
+    std::string signingInput = std::format("{}.{}", mRawHeader, mRawPayload);
+
+    auto timeNow = std::chrono::system_clock::now();
+
+    auto minExpCount = std::chrono::duration_cast<std::chrono::seconds>((timeNow - leeway).time_since_epoch()).count();
+    if (mPayload.exp < minExpCount) {
+        return error_utils::makeError("Login token has expired");
+    }
+
+    if (mPayload.aud != "api://auth-minecraft-services/multiplayer") {
+        return error_utils::makeError("Login token audience is invalid");
+    }
+
+    if (mHeader.alg != "ES384") {
+        return error_utils::makeError("Unsupported algorithm in login token header for self-signed authentication");
+    }
+
+    SCULK_LOGIN_TOKEN_CHECK_HEADER(x5u);
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(leguuid);
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(nid);
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(nname);
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(pid);
+    SCULK_LOGIN_TOKEN_CHECK_PAYLOAD(pname);
+
+    if (*mHeader.x5u != mPayload.cpk) {
+        return error_utils::makeError("Login token 'x5u' header field does not match 'cpk' payload field");
+    }
+
+    if (!es384::verifyES384Signature(signingInput, mSignature, *mHeader.x5u)) {
+        return error_utils::makeError("Failed to verify login token signature");
+    }
+    return {};
+}
+
+Result<> LoginToken::selfSign(const PemKeyPair& clientKeyPair) {
+    SCULK_LOGIN_TOKEN_SERIALIZE_OPTION_INIT();
+
+    mHeader.alg  = "ES384";
+    mHeader.x5u  = pem_helper::stripPemMarkersAndCompact(clientKeyPair.mPublicKeyPem);
+    mPayload.cpk = *mHeader.x5u;
 
     SCULK_LOGIN_TOKEN_CREATE_JSON(header, mHeader);
     SCULK_LOGIN_TOKEN_SERIALIZE(header, alg);
@@ -245,29 +218,17 @@ Result<> LoginToken::signSelfSigned(const AuthenticationKeyManager& authenticati
     mRawPayload = base64url::encode(payloadJson.dump(-1));
 
     auto signingInput = std::format("{}.{}", mRawHeader, mRawPayload);
-    if (!es384::signES384Signature(signingInput, keyPair->mPrivateKeyPem, mSignature)) {
+    if (!es384::signES384Signature(signingInput, clientKeyPair.mPrivateKeyPem, mSignature)) {
         return error_utils::makeError("Failed to sign login token with ES384");
     }
     return {};
 }
 
-Result<> LoginToken::sign(const AuthenticationKeyManager& authenticationKeyManager) {
-    auto authType = authenticationKeyManager.getSigningAuthenticationType();
-
-    auto now = authenticationKeyManager.getSigningTime();
-    mPayload.exp =
-        std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch() + std::chrono::hours(3)).count();
-
-    if (authType == AuthenticationType::Full) {
-        mPayload.iat = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-        return signFull(authenticationKeyManager);
-    } else if (authType == AuthenticationType::SelfSigned) {
-        return signSelfSigned(authenticationKeyManager);
-    }
-    return error_utils::makeError("Guest authentication does not support login token signing");
-}
-
 Result<LoginToken> LoginToken::fromString(std::string_view rawLoginToken) {
+    if (rawLoginToken.empty()) {
+        return LoginToken{};
+    }
+
     SCULK_LOGIN_TOKEN_SERIALIZE_OPTION_INIT();
 
     const auto first = rawLoginToken.find('.');

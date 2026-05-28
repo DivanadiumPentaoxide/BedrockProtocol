@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
-#include "AUthenticationKeyManager.hpp"
-#include "LoginStatus.hpp"
+#include "AuthenticationKeyManager.hpp"
+#include "PemKeyPair.hpp"
 #include "sculk/protocol/utility/Result.hpp"
 #include <format>
 #include <optional>
@@ -53,17 +53,21 @@ public:
     std::string mSignature{};
 
 public:
+    [[nodiscard]] constexpr bool isEmpty() const {
+        return mRawHeader.empty() && mRawPayload.empty() && mSignature.empty();
+    }
+
     [[nodiscard]] std::string getClientPublicKey() const { return mPayload.cpk; }
 
-    [[nodiscard]] Result<LoginStatus> verify(const AuthenticationKeyManager& authenticationKeyManager) const;
+    [[nodiscard]] Result<> verify(const AuthenticationKeyManager& authenticationKeyManager) const;
 
-    [[nodiscard]] Result<> signFull(const AuthenticationKeyManager& authenticationKeyManager);
+    [[nodiscard]] Result<> verifySelfSigned(std::chrono::seconds leeway) const;
 
-    [[nodiscard]] Result<> signSelfSigned(const AuthenticationKeyManager& authenticationKeyManager);
+    [[nodiscard]] Result<> selfSign(const PemKeyPair& clientKeyPair);
 
-    [[nodiscard]] Result<> sign(const AuthenticationKeyManager& authenticationKeyManager);
-
-    [[nodiscard]] std::string toString() const { return std::format("{}.{}.{}", mRawHeader, mRawPayload, mSignature); }
+    [[nodiscard]] std::string toString() const {
+        return isEmpty() ? "" : std::format("{}.{}.{}", mRawHeader, mRawPayload, mSignature);
+    }
 
 public:
     [[nodiscard]] static Result<LoginToken> fromString(std::string_view rawLoginToken);

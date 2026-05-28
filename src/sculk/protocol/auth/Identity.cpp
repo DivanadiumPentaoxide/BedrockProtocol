@@ -146,7 +146,6 @@ Result<> Identity::validateXuid(std::string_view xuid) {
 }
 
 Identity Identity::fromXuid(std::string_view xuid) noexcept {
-    Identity                  identity{};
     std::array<std::byte, 16> digest{};
 
     if (!validateXuid(xuid)) {
@@ -160,9 +159,7 @@ Identity Identity::fromXuid(std::string_view xuid) noexcept {
     digest[6] = static_cast<std::byte>((std::to_integer<std::uint8_t>(digest[6]) & 0x0F) | 0x30); // Version 3
     digest[8] = static_cast<std::byte>((std::to_integer<std::uint8_t>(digest[8]) & 0x3F) | 0x80); // RFC 4122
 
-    identity.mHighBits = readU64BigEndian(digest.data());
-    identity.mLowBits  = readU64BigEndian(digest.data() + 8);
-    return identity;
+    return Identity{.mHighBits = readU64BigEndian(digest.data()), .mLowBits = readU64BigEndian(digest.data() + 8)};
 }
 
 Result<> Identity::validateString(std::string_view str) {
