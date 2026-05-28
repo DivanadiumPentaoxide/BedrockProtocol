@@ -14,6 +14,18 @@
 
 namespace sculk::protocol::inline abi_v975 {
 
+std::optional<std::string_view> AuthenticationKeyManager::getPublicKeyPemByKeyId(const std::string& keyId) const {
+    auto it = mPublicKeysPemByKeyId.find(keyId);
+    if (it != mPublicKeysPemByKeyId.end()) {
+        return it->second;
+    }
+    return {};
+}
+
+std::string_view AuthenticationKeyManager::getExpectedIssuer() const { return mExpectedIssuer; }
+
+std::string_view AuthenticationKeyManager::getExpectedPlayFabTitle() const { return mExpectedPlayFabTitle; }
+
 struct MojangServiceFetchResult {
     struct {
         struct {

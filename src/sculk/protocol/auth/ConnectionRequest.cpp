@@ -81,28 +81,35 @@ std::string ConnectionRequest::getPlayFabID() const {
     return mClientProperties.mPayload.mPlayFabId;
 }
 
-Result<> ConnectionRequest::verifyFull(const AuthenticationKeyManager& authenticationKeyManager) const {
-    if (auto status = mLoginToken.verify(authenticationKeyManager); !status) {
-        return SCULK_CONNECTION_REQUEST_ERROR(status, "LoginToken verification failed");
+Result<>
+ConnectionRequest::verifyFull(const AuthenticationKeyManager& authenticationKeyManager, bool allowLegacy) const {
+    if (mLoginToken.verify(authenticationKeyManager)) {
+        return mClientProperties.verify(mLoginToken.getClientPublicKey());
     }
 
-    if (auto status = mClientProperties.verify(mLoginToken.getClientPublicKey()); !status) {
-        return SCULK_CONNECTION_REQUEST_ERROR(status, "ClientProperties verification failed");
+    if (allowLegacy && mLegacyCertificateChain) {
+        if (mLegacyCertificateChain->verify(authenticationKeyManager.getLeeway())) {
+            return mClientProperties.verify(mLegacyCertificateChain->mLoginCertificate.mHeader.x5u);
+        }
+        return error_utils::makeError("legacy certificate chain verification failed");
     }
 
-    return {};
+    return error_utils::makeError("login token verification failed");
 }
 
-Result<> ConnectionRequest::verifySelfSigned(std::chrono::seconds leeway) const {
-    if (auto status = mLoginToken.verifySelfSigned(leeway); !status) {
-        return SCULK_CONNECTION_REQUEST_ERROR(status, "LoginToken verification failed");
+Result<> ConnectionRequest::verifySelfSigned(std::chrono::seconds leeway, bool allowLegacy) const {
+    if (mLoginToken.verifySelfSigned(leeway)) {
+        return mClientProperties.verify(mLoginToken.getClientPublicKey());
     }
 
-    if (auto status = mClientProperties.verify(mLoginToken.getClientPublicKey()); !status) {
-        return SCULK_CONNECTION_REQUEST_ERROR(status, "ClientProperties verification failed");
+    if (allowLegacy && mLegacyCertificateChain) {
+        if (mLegacyCertificateChain->verifySelfSigned(leeway)) {
+            return mClientProperties.verify(mLegacyCertificateChain->mLoginCertificate.mHeader.x5u);
+        }
+        return error_utils::makeError("legacy certificate chain self-signed verification failed");
     }
 
-    return {};
+    return error_utils::makeError("login token self-signed verification failed");
 }
 
 namespace {

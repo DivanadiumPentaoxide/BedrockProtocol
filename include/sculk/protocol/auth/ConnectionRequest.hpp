@@ -35,9 +35,9 @@ public:
     [[nodiscard]] std::string getPlayFabID() const;
 
 public:
-    [[nodiscard]] Result<> verifyFull(const AuthenticationKeyManager& publicKeyManager) const;
+    [[nodiscard]] Result<> verifyFull(const AuthenticationKeyManager& publicKeyManager, bool allowLegacy = false) const;
 
-    [[nodiscard]] Result<> verifySelfSigned(std::chrono::seconds leeway) const;
+    [[nodiscard]] Result<> verifySelfSigned(std::chrono::seconds leeway, bool allowLegacy = false) const;
 
     [[nodiscard]] Result<> selfSign(const PemKeyPair& clientKeyPair, bool includeLegacyChain = false);
 
