@@ -5,11 +5,20 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-#pragma once
-#include "ISession.hpp"
+#include "sculk/protocol/connection/coro/Scheduler.hpp"
 
 namespace sculk::protocol::inline abi_v975 {
 
-class ServerSession : public ISession {};
+namespace coro {
 
+bool Scheduler::schedule(std::coroutine_handle<> handle) noexcept {
+    return mPool.submit([handle] {
+        if (handle) {
+            handle.resume();
+        }
+    });
 }
+
+} // namespace coro
+
+} // namespace sculk::protocol::inline abi_v975

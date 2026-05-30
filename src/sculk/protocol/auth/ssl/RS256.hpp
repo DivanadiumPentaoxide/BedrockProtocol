@@ -65,7 +65,7 @@ jwkRsaPublicKeyToPem(std::string_view modulusEncoded, std::string_view exponentE
 
     BignumPtr modulus(
         BN_bin2bn(
-            reinterpret_cast<const unsigned char*>(modulusDecoded->data()),
+            reinterpret_cast<const std::uint8_t*>(modulusDecoded->data()),
             static_cast<int>(modulusDecoded->size()),
             nullptr
         ),
@@ -73,7 +73,7 @@ jwkRsaPublicKeyToPem(std::string_view modulusEncoded, std::string_view exponentE
     );
     BignumPtr exponent(
         BN_bin2bn(
-            reinterpret_cast<const unsigned char*>(exponentDecoded->data()),
+            reinterpret_cast<const std::uint8_t*>(exponentDecoded->data()),
             static_cast<int>(exponentDecoded->size()),
             nullptr
         ),

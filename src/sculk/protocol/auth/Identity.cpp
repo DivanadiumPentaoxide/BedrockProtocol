@@ -35,9 +35,9 @@ md5(std::string_view inputA, std::string_view inputB, std::array<std::byte, 16>&
                 && EVP_DigestUpdate(ctx.get(), inputA.data(), inputA.size()) == 1
                 && EVP_DigestUpdate(ctx.get(), inputB.data(), inputB.size()) == 1;
 
-    unsigned int digestLen{};
+    std::uint32_t digestLen{};
     if (success) {
-        success = EVP_DigestFinal_ex(ctx.get(), reinterpret_cast<unsigned char*>(out.data()), &digestLen) == 1
+        success = EVP_DigestFinal_ex(ctx.get(), reinterpret_cast<std::uint8_t*>(out.data()), &digestLen) == 1
                && digestLen == out.size();
     }
     return success;

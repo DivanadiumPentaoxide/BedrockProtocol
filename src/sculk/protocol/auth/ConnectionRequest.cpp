@@ -191,10 +191,10 @@ inline void ensureAndFillLegacyChain(ConnectionRequest& request) {
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                        .identity    = "", // Empty identity
-                        .displayName = request.getXboxLiveName(),
-                        .XUID        = "",      // Empty XUID
-                        .sandBoxId   = "RETAIL" // Always "RETAIL"
+                          .identity    = "", // Empty identity
+                          .displayName = request.getXboxLiveName(),
+                          .XUID        = "",      // Empty XUID
+                          .sandBoxId   = "RETAIL" // Always "RETAIL"
                     }
                 }
             }

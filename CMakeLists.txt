@@ -106,6 +106,20 @@ if(PROTOCOL_ENABLE_AUTHENTICATION)
 endif()
 
 if(PROTOCOL_ENABLE_CONNECTION)
+    FetchContent_Declare(
+        concurrentqueue
+        GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git
+        GIT_TAG v1.0.4
+    )
+    FetchContent_MakeAvailable(concurrentqueue)
+
+    FetchContent_Declare(
+        parallel_hashmap
+        GIT_REPOSITORY https://github.com/greg7mdp/parallel-hashmap.git
+        GIT_TAG v2.0.0
+    )
+    FetchContent_MakeAvailable(parallel_hashmap)
+
     set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Disable zlib tests" FORCE)
     set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Disable zlib examples" FORCE)
     set(SKIP_INSTALL_ALL ON CACHE BOOL "Disable zlib install targets" FORCE)
@@ -183,7 +197,14 @@ if(PROTOCOL_ENABLE_CONNECTION)
         GIT_TAG master
     )
     FetchContent_MakeAvailable(RakNet)
-    target_include_directories(Protocol PRIVATE $<BUILD_INTERFACE:${RakNet_SOURCE_DIR}/Source>)
+    if(TARGET RakNetLibStatic)
+        target_compile_definitions(RakNetLibStatic PUBLIC RAKNET_SUPPORT_IPV6=1)
+    endif()
+    target_include_directories(Protocol PUBLIC
+        $<BUILD_INTERFACE:${RakNet_SOURCE_DIR}/Source>
+        $<BUILD_INTERFACE:${concurrentqueue_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${parallel_hashmap_SOURCE_DIR}>
+    )
     target_link_libraries(Protocol PRIVATE
         $<BUILD_INTERFACE:RakNetLibStatic>
         $<INSTALL_INTERFACE:RakNetLibStatic::RakNetLibStatic>
@@ -216,7 +237,7 @@ endif()
 
 if(MSVC)
     if(NOT PROTOCOL_ENABLE_EXCEPTIONS)
-        string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+        string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     endif()
 
     target_compile_options(Protocol PRIVATE
