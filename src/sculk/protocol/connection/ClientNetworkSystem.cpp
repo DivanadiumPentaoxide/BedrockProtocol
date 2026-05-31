@@ -19,16 +19,13 @@ namespace sculk::protocol::inline abi_v975 {
 
 namespace {
 
-constexpr auto          RECEIVE_IDLE_SLEEP          = std::chrono::milliseconds(1);
-constexpr auto          SEND_FLUSH_INTERVAL         = std::chrono::milliseconds(20);
-constexpr std::uint8_t  MINECRAFT_BATCH_PACKET_ID   = 0xFE;
-constexpr std::size_t   MAX_POOLED_PACKET_CAPACITY  = 1U << 20;
-constexpr std::size_t   MAX_POOLED_PACKET_COUNT     = 64;
-constexpr std::size_t   MAX_RETAINED_BATCH_CAPACITY = 256;
-constexpr std::size_t   MAX_OUTBOUND_QUEUE_PACKETS  = 256;
-constexpr std::uint64_t MAX_BYTES_QUEUED_FOR_SEND   = 32ULL * 1024ULL * 1024ULL;
-constexpr std::uint64_t MAX_BYTES_IN_RESEND_BUFFER  = 32ULL * 1024ULL * 1024ULL;
-constexpr std::size_t   MAX_IMMEDIATE_SEND_QUEUE    = 2048;
+constexpr auto         RECEIVE_IDLE_SLEEP          = std::chrono::milliseconds(1);
+constexpr auto         SEND_FLUSH_INTERVAL         = std::chrono::milliseconds(20);
+constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID   = 0xFE;
+constexpr std::size_t  MAX_POOLED_PACKET_CAPACITY  = 1U << 20;
+constexpr std::size_t  MAX_POOLED_PACKET_COUNT     = 64;
+constexpr std::size_t  MAX_RETAINED_BATCH_CAPACITY = 256;
+constexpr std::size_t  MAX_IMMEDIATE_SEND_QUEUE    = 2048;
 
 template <typename T>
 void trimVectorCapacity(std::vector<T>& vec, std::size_t maxCapacity) {
@@ -38,17 +35,6 @@ void trimVectorCapacity(std::vector<T>& vec, std::size_t maxCapacity) {
 
     std::vector<T> released{};
     vec.swap(released);
-}
-
-[[nodiscard]] bool isSessionBackpressured(const Session& session) noexcept {
-    const auto status = session.getNetworkStatus();
-    if (!status.getConnected()) {
-        return true;
-    }
-
-    return status.getOutboundQueueApprox() > MAX_OUTBOUND_QUEUE_PACKETS
-        || status.getBytesQueuedForSend() > MAX_BYTES_QUEUED_FOR_SEND
-        || status.getBytesInResendBuffer() > MAX_BYTES_IN_RESEND_BUFFER;
 }
 
 class PacketBufferPool final {
@@ -238,6 +224,12 @@ void ClientNetworkSystem::disconnect() {
         emitEvent(NetworkEvent{NetworkEventType::Disconnected, remote.rakNetGuid, remote.systemAddress});
     }
 
+    // Eagerly release all event hook references to break potential ownership cycles.
+    mOnConnectedHandler.store({}, std::memory_order_release);
+    mOnDisconnectedHandler.store({}, std::memory_order_release);
+    mOnConnectionFailedHandler.store({}, std::memory_order_release);
+    mOnPacketReceiveHandler.store({}, std::memory_order_release);
+
     if (mPeer) {
         // Give RakNet a short window to flush disconnection notification.
         mPeer->Shutdown(200, 0, HIGH_PRIORITY);
@@ -255,10 +247,6 @@ bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) {
         return false;
     }
 
-    if (isSessionBackpressured(*session)) {
-        return false;
-    }
-
     if (!session->sendPacket(buffer)) {
         return false;
     }
@@ -270,10 +258,6 @@ bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) {
 std::uint32_t ClientNetworkSystem::sendPacketImmediately(std::span<const std::byte> buffer) {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session || buffer.empty()) {
-        return 0;
-    }
-
-    if (isSessionBackpressured(*session)) {
         return 0;
     }
 
@@ -553,6 +537,12 @@ void ClientNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
         }
 
         emitEvent(NetworkEvent{eventType, packet->guid, packet->systemAddress});
+
+        // Eagerly release all event hook references to break potential ownership cycles.
+        mOnConnectedHandler.store({}, std::memory_order_release);
+        mOnDisconnectedHandler.store({}, std::memory_order_release);
+        mOnConnectionFailedHandler.store({}, std::memory_order_release);
+        mOnPacketReceiveHandler.store({}, std::memory_order_release);
         return;
     }
 
@@ -615,7 +605,7 @@ void ClientNetworkSystem::flushOutboundPackets() {
 
     ImmediateSendRequest immediate;
     while (mImmediateSends.try_dequeue(immediate)) {
-        if (immediate.mSession && immediate.mSession->isConnected() && !isSessionBackpressured(*immediate.mSession)) {
+        if (immediate.mSession && immediate.mSession->isConnected()) {
             (void)immediate.mSession->sendPacketImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
         }
     }
