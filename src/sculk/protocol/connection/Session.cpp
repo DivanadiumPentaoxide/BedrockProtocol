@@ -94,7 +94,6 @@ void subtractQueuedBytesSaturating(std::atomic_uint64_t& counter, std::uint64_t 
 
     compressedStream.writeAndMoveBuffer(std::move(packetsBuffer));
 
-    // TODO: encryption
     return finalBuffer;
 }
 
@@ -184,6 +183,10 @@ std::uint32_t Session::sendPacketImmediately(std::span<const std::byte> buffer, 
     packetStream.writeBytes(buffer.data(), buffer.size());
 
     auto batched = finalizeBatchedPayload(std::move(packetsBuffer), mCompressionType, mCompressionThreshold);
+
+    if (isEncrypted()) {
+        batched = mEncryption->encrypt(batched);
+    }
 
     if (batched.empty()) {
         return 0;
@@ -447,11 +450,23 @@ PacketBuffer Session::serializeBatchedPackets(const PacketBufferBatch& packets) 
         packetStream.writeBytes(packet.data(), packet.size());
     }
 
-    return finalizeBatchedPayload(std::move(packetsBuffer), mCompressionType, mCompressionThreshold);
+    auto finalBuffer = finalizeBatchedPayload(std::move(packetsBuffer), mCompressionType, mCompressionThreshold);
+
+    if (isEncrypted()) {
+        finalBuffer = mEncryption->encrypt(finalBuffer);
+    }
+
+    return finalBuffer;
 }
 
 Result<PacketBufferBatch> Session::deserializeBatchPackets(std::span<const std::byte> batchedBuffer) {
-    // TODO: decryption
+
+    if (isEncrypted()) {
+        auto decrypted = mEncryption->decrypt(batchedBuffer);
+
+        batchedBuffer = decrypted;
+    }
+
     ReadOnlyBinaryStream compressedStream{batchedBuffer};
     PacketBuffer         decompressedBuffer{};
 

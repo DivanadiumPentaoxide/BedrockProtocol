@@ -191,10 +191,10 @@ inline void ensureAndFillLegacyChain(ConnectionRequest& request) {
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                          .identity    = "", // Empty identity
-                          .displayName = request.getXboxLiveName(),
-                          .XUID        = "",      // Empty XUID
-                          .sandBoxId   = "RETAIL" // Always "RETAIL"
+                        .identity    = "", // Empty identity
+                        .displayName = request.getXboxLiveName(),
+                        .XUID        = "",      // Empty XUID
+                        .sandBoxId   = "RETAIL" // Always "RETAIL"
                     }
                 }
             }
@@ -209,6 +209,8 @@ inline void ensureAndFillLegacyChain(ConnectionRequest& request) {
 } // namespace
 
 Result<> ConnectionRequest::selfSign(const PemKeyPair& clientKeyPair, bool includeLegacyChain) {
+    mAuthenticationType = AuthenticationType::SelfSigned;
+
     ensureAndFillLoginToken(*this);
     if (auto status = mLoginToken.selfSign(clientKeyPair); !status) {
         return SCULK_CONNECTION_REQUEST_ERROR(status, "Login token signing failed");

@@ -8,6 +8,7 @@
 #pragma once
 #include "sculk/protocol/connection/NetworkStatus.hpp"
 #include "sculk/protocol/connection/coro/Task.hpp"
+#include "sculk/protocol/connection/encryption/CryptoManager.hpp"
 #include "sculk/protocol/utility/Result.hpp"
 #include <RakPeerInterface.h>
 #include <atomic>
@@ -55,6 +56,7 @@ protected:
     std::atomic_uint64_t                                 mOutboundQueuedBytes{0};
     std::optional<CompressionType>                       mCompressionType{};
     std::size_t                                          mCompressionThreshold{};
+    std::optional<CryptoManager>                         mEncryption{};
 
 public:
     explicit Session(RakNet::RakPeerInterface* peer, RakNet::AddressOrGUID remote, coro::Scheduler* scheduler) noexcept;
@@ -75,6 +77,10 @@ public:
     [[nodiscard]] std::size_t getCompressionThreshold() const noexcept { return mCompressionThreshold; }
 
     void setCompressionThreshold(std::size_t threshold) noexcept { mCompressionThreshold = threshold; }
+
+    [[nodiscard]] bool isEncrypted() const noexcept { return mEncryption.has_value(); }
+
+    void setEncrypted(std::vector<std::byte> key) noexcept { mEncryption.emplace(std::move(key)); }
 
     // Queue-based send. Network I/O thread flushes the queue later.
     [[nodiscard]] bool sendPacket(std::span<const std::byte> buffer);

@@ -9,22 +9,14 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <openssl/evp.h>
 #include <utility>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::inline abi_v944 {
 
 namespace {
-
-constexpr std::size_t CHECKSUM_SIZE  = 8;
-constexpr std::size_t AES_BLOCK_SIZE = 16;
-
-struct EvpCipherCtxDeleter {
-    void operator()(evp_cipher_ctx_st* ctx) const noexcept { EVP_CIPHER_CTX_free(ctx); }
-};
-
-using EvpCipherCtxPtr = std::unique_ptr<evp_cipher_ctx_st, EvpCipherCtxDeleter>;
 
 struct EvpMdCtxDeleter {
     void operator()(EVP_MD_CTX* ctx) const noexcept { EVP_MD_CTX_free(ctx); }
@@ -51,8 +43,20 @@ const EVP_CIPHER* selectAesCtrCipher(std::size_t keySize) noexcept {
     }
 }
 
-std::array<std::byte, CHECKSUM_SIZE>
-checksum(std::uint64_t counter, const std::byte* data, std::size_t dataSize, const std::vector<std::byte>& saltBytes) {
+} // namespace
+
+void EvpCipherCtxDeleter::operator()(evp_cipher_ctx_st* ctx) const noexcept { EVP_CIPHER_CTX_free(ctx); }
+
+CryptoManager::CryptoManager(std::vector<std::byte>&& keyBytes) : mKeyBytes(std::move(keyBytes)) {
+    const std::size_t nonceSize = std::min<std::size_t>(mKeyBytes.size(), 12);
+    if (nonceSize != 0) {
+        std::copy_n(mKeyBytes.begin(), nonceSize, mInitialCounterBlock.begin());
+    }
+    mInitialCounterBlock[15] = std::byte{0x02};
+}
+
+std::array<std::byte, CryptoManager::CHECKSUM_SIZE>
+CryptoManager::checksum(std::uint64_t counter, const std::byte* data, std::size_t dataSize) const {
     std::array<std::byte, CHECKSUM_SIZE> counterBytes{};
     writeLittleEndian64(counterBytes, counter);
 
@@ -62,7 +66,7 @@ checksum(std::uint64_t counter, const std::byte* data, std::size_t dataSize, con
     if (!ctx || EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) != 1
         || EVP_DigestUpdate(ctx.get(), counterBytes.data(), counterBytes.size()) != 1
         || (dataSize != 0 && EVP_DigestUpdate(ctx.get(), data, dataSize) != 1)
-        || (!saltBytes.empty() && EVP_DigestUpdate(ctx.get(), saltBytes.data(), saltBytes.size()) != 1)
+        || (!mKeyBytes.empty() && EVP_DigestUpdate(ctx.get(), mKeyBytes.data(), mKeyBytes.size()) != 1)
         || EVP_DigestFinal_ex(ctx.get(), digest.data(), &digestSize) != 1 || digestSize < CHECKSUM_SIZE) {
         return {};
     }
@@ -72,13 +76,8 @@ checksum(std::uint64_t counter, const std::byte* data, std::size_t dataSize, con
     return result;
 }
 
-bool initializeCipher(
-    EvpCipherCtxPtr&                             ctx,
-    bool                                         encrypt,
-    const std::vector<std::byte>&                saltBytes,
-    const std::array<std::byte, AES_BLOCK_SIZE>& initialCounterBlock
-) {
-    const EVP_CIPHER* cipher = selectAesCtrCipher(saltBytes.size());
+bool CryptoManager::initializeCipher(EvpCipherCtxPtr& ctx, bool encrypt) const {
+    const EVP_CIPHER* cipher = selectAesCtrCipher(mKeyBytes.size());
     if (!cipher) {
         return false;
     }
@@ -89,109 +88,71 @@ bool initializeCipher(
                ctx.get(),
                cipher,
                nullptr,
-               reinterpret_cast<const unsigned char*>(saltBytes.data()),
-               reinterpret_cast<const unsigned char*>(initialCounterBlock.data()),
+               reinterpret_cast<const unsigned char*>(mKeyBytes.data()),
+               reinterpret_cast<const unsigned char*>(mInitialCounterBlock.data()),
                encrypt ? 1 : 0
            ) == 1
         && EVP_CIPHER_CTX_set_padding(ctx.get(), 0) == 1;
 }
 
-std::vector<std::byte> ctrCrypt(EvpCipherCtxPtr& ctx, const std::vector<std::byte>& bytes) {
+std::vector<std::byte> CryptoManager::ctrCrypt(EvpCipherCtxPtr& ctx, std::span<const std::byte> bytes) const {
     if (bytes.empty()) {
         return {};
     }
-    if (!ctx) {
-        return bytes;
-    }
 
     std::vector<std::byte> output(bytes.size());
-    int                    outLen = 0;
-    const bool             ok     = EVP_CipherUpdate(
-                        ctx.get(),
-                        reinterpret_cast<unsigned char*>(output.data()),
-                        &outLen,
-                        reinterpret_cast<const unsigned char*>(bytes.data()),
-                        static_cast<int>(bytes.size())
-                    )
-                 == 1;
+    if (!ctx) {
+        return {bytes.begin(), bytes.end()};
+    }
+
+    int        outLen = 0;
+    const bool ok     = EVP_CipherUpdate(
+                            ctx.get(),
+                            reinterpret_cast<unsigned char*>(output.data()),
+                            &outLen,
+                            reinterpret_cast<const unsigned char*>(bytes.data()),
+                            static_cast<int>(bytes.size())
+                        )
+                     == 1;
 
     if (!ok || static_cast<std::size_t>(outLen) != output.size()) {
-        return bytes;
+        return {bytes.begin(), bytes.end()};
     }
 
     return output;
 }
 
-} // namespace
-
-struct CryptoManager::Impl {
-    std::uint64_t                         mEncryptCounter{};
-    std::uint64_t                         mDecryptCounter{};
-    std::vector<std::byte>                mSaltBytes{};
-    std::array<std::byte, AES_BLOCK_SIZE> mInitialCounterBlock{};
-    EvpCipherCtxPtr                       mEncryptCtx{};
-    EvpCipherCtxPtr                       mDecryptCtx{};
-};
-
-CryptoManager::CryptoManager() : mImpl(std::make_unique<Impl>()) {}
-
-CryptoManager::CryptoManager(std::vector<std::byte> saltBytes) : CryptoManager() { setSalt(std::move(saltBytes)); }
-
-CryptoManager::~CryptoManager() = default;
-
-CryptoManager::CryptoManager(CryptoManager&&) noexcept = default;
-
-CryptoManager& CryptoManager::operator=(CryptoManager&&) noexcept = default;
-
-void CryptoManager::setSalt(std::vector<std::byte> saltBytes) {
-    mImpl->mSaltBytes      = std::move(saltBytes);
-    mImpl->mEncryptCounter = 0;
-    mImpl->mDecryptCounter = 0;
-    mImpl->mEncryptCtx.reset();
-    mImpl->mDecryptCtx.reset();
-    mImpl->mInitialCounterBlock.fill(std::byte{});
-
-    const std::size_t nonceSize = std::min<std::size_t>(mImpl->mSaltBytes.size(), 12);
-    if (nonceSize != 0) {
-        std::copy_n(mImpl->mSaltBytes.begin(), nonceSize, mImpl->mInitialCounterBlock.begin());
-    }
-    mImpl->mInitialCounterBlock[15] = std::byte{0x02};
-}
-
-std::vector<std::byte> CryptoManager::encrypt(const std::vector<std::byte>& bytes) {
+std::vector<std::byte> CryptoManager::encrypt(std::span<const std::byte> bytes) {
     if (bytes.empty()) {
-        return bytes;
+        return {};
     }
 
-    std::vector<std::byte> data        = bytes;
+    std::vector<std::byte> data{bytes.begin(), bytes.end()};
     const std::byte*       payload     = data.data();
     const std::size_t      payloadSize = data.size();
-    data.reserve(payloadSize + CHECKSUM_SIZE);
-    const auto sum = checksum(mImpl->mEncryptCounter++, payload, payloadSize, mImpl->mSaltBytes);
+    const auto             sum         = checksum(mEncryptCounter++, payload, payloadSize);
     data.insert(data.end(), sum.begin(), sum.end());
 
-    if (!mImpl->mEncryptCtx
-        && !initializeCipher(mImpl->mEncryptCtx, true, mImpl->mSaltBytes, mImpl->mInitialCounterBlock)) {
-        return bytes;
+    if (!mEncryptCtx && !initializeCipher(mEncryptCtx, true)) {
+        return {bytes.begin(), bytes.end()};
     }
 
-    return ctrCrypt(mImpl->mEncryptCtx, data);
+    return ctrCrypt(mEncryptCtx, data);
 }
 
-std::vector<std::byte> CryptoManager::decrypt(const std::vector<std::byte>& bytes) {
+std::vector<std::byte> CryptoManager::decrypt(std::span<const std::byte> bytes) {
     if (bytes.empty()) {
-        return bytes;
+        return {};
     }
     if (bytes.size() < CHECKSUM_SIZE) {
         return {};
     }
 
-    if (!mImpl->mDecryptCtx
-        && !initializeCipher(mImpl->mDecryptCtx, false, mImpl->mSaltBytes, mImpl->mInitialCounterBlock)) {
-        return bytes;
+    if (!mDecryptCtx && !initializeCipher(mDecryptCtx, false)) {
+        return {bytes.begin(), bytes.end()};
     }
 
-    auto clear = ctrCrypt(mImpl->mDecryptCtx, bytes);
+    auto clear = ctrCrypt(mDecryptCtx, bytes);
     if (!verify(clear)) {
         return {};
     }
@@ -200,14 +161,14 @@ std::vector<std::byte> CryptoManager::decrypt(const std::vector<std::byte>& byte
     return clear;
 }
 
-bool CryptoManager::verify(const std::vector<std::byte>& bytes) {
+bool CryptoManager::verify(std::span<const std::byte> bytes) {
     if (bytes.size() < CHECKSUM_SIZE) {
         return false;
     }
 
     const std::size_t payloadSize = bytes.size() - CHECKSUM_SIZE;
-    const auto        expected    = checksum(mImpl->mDecryptCounter++, bytes.data(), payloadSize, mImpl->mSaltBytes);
+    const auto        expected    = checksum(mDecryptCounter++, bytes.data(), payloadSize);
     return std::equal(expected.begin(), expected.end(), bytes.begin() + static_cast<std::ptrdiff_t>(payloadSize));
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::inline abi_v944
