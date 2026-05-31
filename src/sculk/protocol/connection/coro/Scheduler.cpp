@@ -12,7 +12,7 @@ namespace sculk::protocol::inline abi_v975 {
 namespace coro {
 
 bool Scheduler::schedule(std::coroutine_handle<> handle) noexcept {
-    return mPool.submit([handle] {
+    return mPool.submit([handle]() noexcept {
         if (handle) {
             handle.resume();
         }

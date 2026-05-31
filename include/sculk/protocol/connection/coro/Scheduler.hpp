@@ -8,6 +8,7 @@
 #pragma once
 #include "sculk/protocol/connection/thread/ThreadPool.hpp"
 #include <coroutine>
+#include <type_traits>
 
 namespace sculk::protocol::inline abi_v975 {
 
@@ -26,6 +27,7 @@ public:
     bool schedule(std::coroutine_handle<> handle) noexcept;
 
     template <typename F>
+        requires std::invocable<F&> && std::is_nothrow_invocable_v<F&>
     bool schedule(F&& func) {
         return mPool.submit(std::forward<F>(func));
     }

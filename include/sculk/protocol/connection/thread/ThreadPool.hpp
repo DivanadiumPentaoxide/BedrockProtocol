@@ -14,6 +14,7 @@
 #include <memory>
 #include <semaphore>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 namespace sculk::protocol::inline abi_v975 {
@@ -33,17 +34,44 @@ public:
 
 public:
     template <typename F>
-        requires std::invocable<F>
+        requires std::invocable<F&> && std::is_nothrow_invocable_v<F&>
     bool submit(F&& task) {
-        if (mStopping.load(std::memory_order_acquire)) {
+        if (!mAcceptingSubmissions.load(std::memory_order_acquire)) {
             return false;
         }
 
-        auto wrapped = Task(std::forward<F>(task));
-        if (!mTasks.enqueue(std::move(wrapped))) {
+        mInFlightSubmissions.fetch_add(1, std::memory_order_acq_rel);
+
+        if (!mAcceptingSubmissions.load(std::memory_order_acquire)) {
+            if (mInFlightSubmissions.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+                mInFlightSubmissions.notify_all();
+            }
             return false;
         }
-        mWorkSignal.release();
+
+        const auto workerCount = mWorkerStates.size();
+        if (workerCount == 0) {
+            if (mInFlightSubmissions.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+                mInFlightSubmissions.notify_all();
+            }
+            return false;
+        }
+
+        const auto workerIndex = mNextWorker.fetch_add(1, std::memory_order_relaxed) % workerCount;
+        auto&      workerState = *mWorkerStates[workerIndex];
+
+        auto       wrapped  = Task(std::forward<F>(task));
+        const bool enqueued = workerState.mTasks.enqueue(std::move(wrapped));
+
+        if (mInFlightSubmissions.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+            mInFlightSubmissions.notify_all();
+        }
+
+        if (!enqueued) {
+            return false;
+        }
+
+        workerState.mSignal.release();
         return true;
     }
 
@@ -54,16 +82,23 @@ public:
     void stop() noexcept;
 
 private:
-    using Task = std::move_only_function<void()>;
+    using Task = std::move_only_function<void() noexcept>;
+
+    struct WorkerState final {
+        moodycamel::ConcurrentQueue<Task>    mTasks{};
+        std::counting_semaphore<1024 * 1024> mSignal{0};
+    };
 
 private:
-    void workerLoop(std::stop_token stopToken);
+    void workerLoop(std::stop_token stopToken, std::size_t workerIndex);
 
 private:
-    moodycamel::ConcurrentQueue<Task>    mTasks{};
-    std::counting_semaphore<1024 * 1024> mWorkSignal{0};
-    std::atomic_bool                     mStopping{false};
-    std::vector<std::jthread>            mWorkers{};
+    std::atomic<std::size_t>                  mNextWorker{0};
+    std::atomic_bool                          mAcceptingSubmissions{true};
+    std::atomic_uint32_t                      mInFlightSubmissions{0};
+    std::atomic_bool                          mStopping{false};
+    std::vector<std::unique_ptr<WorkerState>> mWorkerStates{};
+    std::vector<std::jthread>                 mWorkers{};
 };
 
 } // namespace thread

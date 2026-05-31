@@ -17,22 +17,33 @@ ThreadPool::ThreadPool(std::size_t threadCount) {
         threadCount = std::max<std::size_t>(1, std::thread::hardware_concurrency());
     }
 
+    mWorkerStates.reserve(threadCount);
     mWorkers.reserve(threadCount);
     for (std::size_t i = 0; i < threadCount; ++i) {
-        mWorkers.emplace_back([this](std::stop_token token) { workerLoop(token); });
+        mWorkerStates.emplace_back(std::make_unique<WorkerState>());
+        mWorkers.emplace_back([this, i](std::stop_token token) { workerLoop(token, i); });
     }
 }
 
 ThreadPool::~ThreadPool() { stop(); }
 
 void ThreadPool::stop() noexcept {
+    if (!mAcceptingSubmissions.exchange(false, std::memory_order_acq_rel)) {
+        return;
+    }
+
+    auto inFlight = mInFlightSubmissions.load(std::memory_order_acquire);
+    while (inFlight != 0) {
+        mInFlightSubmissions.wait(inFlight, std::memory_order_acquire);
+        inFlight = mInFlightSubmissions.load(std::memory_order_acquire);
+    }
+
     if (mStopping.exchange(true, std::memory_order_acq_rel)) {
         return;
     }
 
-    const auto wakeCount = mWorkers.size();
-    for (std::size_t i = 0; i < wakeCount; ++i) {
-        mWorkSignal.release();
+    for (auto& state : mWorkerStates) {
+        state->mSignal.release();
     }
 
     for (auto& worker : mWorkers) {
@@ -40,20 +51,22 @@ void ThreadPool::stop() noexcept {
     }
 }
 
-void ThreadPool::workerLoop(std::stop_token stopToken) {
+void ThreadPool::workerLoop(std::stop_token stopToken, std::size_t workerIndex) {
+    auto& state = *mWorkerStates[workerIndex];
+
     for (;;) {
-        mWorkSignal.acquire();
+        state.mSignal.acquire();
 
         if (mStopping.load(std::memory_order_acquire) || stopToken.stop_requested()) {
             Task task;
-            while (mTasks.try_dequeue(task)) {
+            while (state.mTasks.try_dequeue(task)) {
                 task();
             }
             return;
         }
 
         Task task;
-        while (mTasks.try_dequeue(task)) {
+        while (state.mTasks.try_dequeue(task)) {
             task();
         }
     }

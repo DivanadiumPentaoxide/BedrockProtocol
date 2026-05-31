@@ -12,6 +12,7 @@
 #include "sculk/protocol/connection/Session.hpp"
 #include <concepts>
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -19,10 +20,16 @@ namespace sculk::protocol::inline abi_v975::coro {
 
 template <typename Sink, typename OnStop = std::nullptr_t>
     requires std::invocable<Sink&, std::vector<std::byte>&&>
+          && std::is_nothrow_invocable_v<Sink&, std::vector<std::byte>&&> && std::is_nothrow_move_constructible_v<Sink>
+          && (std::same_as<OnStop, std::nullptr_t>
+              || (std::invocable<OnStop&> && std::is_nothrow_invocable_v<OnStop&>
+                  && std::is_nothrow_move_constructible_v<OnStop>))
 inline void startSessionReceivePump(coro::Scheduler& scheduler, Session& session, Sink sink, OnStop onStop = nullptr) {
     startPacketPump(
         scheduler,
-        [&session]() -> coro::Task<Result<std::vector<std::byte>>> { co_return co_await session.receivePacketAsync(); },
+        [&session]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
+            co_return co_await session.receivePacketAsync();
+        },
         std::move(sink),
         std::move(onStop)
     );
@@ -30,11 +37,17 @@ inline void startSessionReceivePump(coro::Scheduler& scheduler, Session& session
 
 template <typename Sink, typename OnStop = std::nullptr_t>
     requires std::invocable<Sink&, std::vector<std::byte>&&>
+          && std::is_nothrow_invocable_v<Sink&, std::vector<std::byte>&&> && std::is_nothrow_move_constructible_v<Sink>
+          && (std::same_as<OnStop, std::nullptr_t>
+              || (std::invocable<OnStop&> && std::is_nothrow_invocable_v<OnStop&>
+                  && std::is_nothrow_move_constructible_v<OnStop>))
 inline void
 startClientReceivePump(coro::Scheduler& scheduler, ClientNetworkSystem& client, Sink sink, OnStop onStop = nullptr) {
     startPacketPump(
         scheduler,
-        [&client]() -> coro::Task<Result<std::vector<std::byte>>> { co_return co_await client.receivePacketAsync(); },
+        [&client]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
+            co_return co_await client.receivePacketAsync();
+        },
         std::move(sink),
         std::move(onStop)
     );
@@ -42,6 +55,10 @@ startClientReceivePump(coro::Scheduler& scheduler, ClientNetworkSystem& client, 
 
 template <typename Sink, typename OnStop = std::nullptr_t>
     requires std::invocable<Sink&, std::vector<std::byte>&&>
+          && std::is_nothrow_invocable_v<Sink&, std::vector<std::byte>&&> && std::is_nothrow_move_constructible_v<Sink>
+          && (std::same_as<OnStop, std::nullptr_t>
+              || (std::invocable<OnStop&> && std::is_nothrow_invocable_v<OnStop&>
+                  && std::is_nothrow_move_constructible_v<OnStop>))
 inline void startServerReceivePump(
     coro::Scheduler&     scheduler,
     ServerNetworkSystem& server,
@@ -51,7 +68,7 @@ inline void startServerReceivePump(
 ) {
     startPacketPump(
         scheduler,
-        [&server, guid]() -> coro::Task<Result<std::vector<std::byte>>> {
+        [&server, guid]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
             co_return co_await server.receiveFromClientAsync(guid);
         },
         std::move(sink),

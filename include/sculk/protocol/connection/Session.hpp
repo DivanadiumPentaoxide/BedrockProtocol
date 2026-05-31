@@ -75,14 +75,14 @@ public:
     void setCompressionThreshold(std::size_t threshold) noexcept { mCompressionThreshold = threshold; }
 
     // Queue-based send. Network I/O thread flushes the queue later.
-    [[nodiscard]] bool sendPacket(std::span<const std::byte> buffer) noexcept;
+    [[nodiscard]] bool sendPacket(std::span<const std::byte> buffer);
 
     // Move-friendly queue-based send.
-    [[nodiscard]] bool sendPacket(std::vector<std::byte>&& buffer) noexcept;
+    [[nodiscard]] bool sendPacket(std::vector<std::byte>&& buffer);
 
     // Immediate send path for one logical packet. The packet is still wrapped into a batch before transport send.
     [[nodiscard]] std::uint32_t
-    sendPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber = 0) noexcept;
+    sendPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber = 0);
 
     // Low-level immediate send for payloads that are already fully serialized for transport.
     [[nodiscard]] std::uint32_t
@@ -94,6 +94,8 @@ public:
     // Coroutine receive. Suspends until one packet is available.
     // Returns error when session is disconnected before new packet arrives.
     [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketAsync();
+
+    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketAsync(std::uint64_t expectedGeneration);
 
     [[nodiscard]] bool hasPendingInboundPackets() const noexcept;
 
@@ -126,6 +128,13 @@ public:
     void notifyOneReceiver() noexcept;
 
     void registerReceiveWaiter(std::coroutine_handle<> handle) noexcept;
+
+    [[nodiscard]] std::uint64_t receivePumpGeneration() const noexcept;
+
+    void cancelReceiveWaiters() noexcept;
+
+private:
+    std::atomic_uint64_t mReceivePumpGeneration{0};
 };
 
 } // namespace sculk::protocol::inline abi_v975

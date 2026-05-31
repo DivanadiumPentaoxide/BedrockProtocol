@@ -238,7 +238,7 @@ void ServerNetworkSystem::stop() {
 
 bool ServerNetworkSystem::isRunning() const noexcept { return mRunning.load(std::memory_order_acquire); }
 
-bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) noexcept {
+bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
     auto session = getSession(guid);
     if (!session || !session->sendPacket(buffer)) {
         return false;
@@ -252,7 +252,7 @@ bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::span<const 
     return true;
 }
 
-bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) noexcept {
+bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
     auto session = getSession(guid);
     if (!session || !session->sendPacket(std::move(buffer))) {
         return false;
@@ -266,8 +266,7 @@ bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::vector<std:
     return true;
 }
 
-std::uint32_t
-ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) noexcept {
+std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
     auto session = getSession(guid);
     if (!session || buffer.empty()) {
         return 0;
@@ -288,8 +287,7 @@ ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::span<
     return receipt;
 }
 
-std::uint32_t
-ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) noexcept {
+std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
     auto session = getSession(guid);
     if (!session || buffer.empty()) {
         return 0;
@@ -345,7 +343,7 @@ bool ServerNetworkSystem::setOnConnectionFailed(RawEventCallback callback, void*
     return setOnEventRaw(mOnConnectionFailedHandler, callback, userData, nullptr);
 }
 
-bool ServerNetworkSystem::setOnPacketReceive(RawPacketReceiveCallback callback, void* userData) noexcept {
+bool ServerNetworkSystem::setOnPacketReceive(RawPacketReceiveCallback callback, void* userData) {
     return setOnPacketRaw(callback, userData, nullptr);
 }
 
@@ -353,7 +351,7 @@ bool ServerNetworkSystem::setOnEventRaw(
     std::atomic<std::shared_ptr<EventHook>>& target,
     RawEventCallback                         callback,
     void*                                    userData,
-    void (*destroyUserData)(void*)
+    void (*destroyUserData)(void*) noexcept
 ) noexcept {
     if (!callback) {
         if (destroyUserData && userData) {
@@ -380,13 +378,19 @@ bool ServerNetworkSystem::setOnEventRaw(
 bool ServerNetworkSystem::setOnPacketRaw(
     RawPacketReceiveCallback callback,
     void*                    userData,
-    void (*destroyUserData)(void*)
-) noexcept {
+    void (*destroyUserData)(void*) noexcept
+) {
     if (!callback) {
         if (destroyUserData && userData) {
             destroyUserData(userData);
         }
         mOnPacketReceiveHandler.store(std::shared_ptr<PacketHook>{}, std::memory_order_release);
+        auto sessions = mSessionsSnapshot.load(std::memory_order_acquire);
+        for (const auto& [_, session] : *sessions) {
+            if (session) {
+                session->cancelReceiveWaiters();
+            }
+        }
         return false;
     }
 
@@ -413,6 +417,13 @@ void ServerNetworkSystem::startPacketPumpIfNeeded(RakNet::RakNetGUID guid) {
         return;
     }
 
+    auto session = getSession(guid);
+    if (!session || !session->isConnected()) {
+        return;
+    }
+
+    const auto expectedGeneration = session->receivePumpGeneration();
+
     {
         std::scoped_lock lock{mPacketPumpMutex};
         auto [it, inserted] = mActivePacketPumps.insert(guid.g);
@@ -422,11 +433,12 @@ void ServerNetworkSystem::startPacketPumpIfNeeded(RakNet::RakNetGUID guid) {
         }
     }
 
-    coro::startServerReceivePump(
+    coro::startPacketPump(
         mScheduler,
-        *this,
-        guid,
-        [this, guid](std::vector<std::byte>&& packet) -> bool {
+        [session, expectedGeneration]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
+            co_return co_await session->receivePacketAsync(expectedGeneration);
+        },
+        [this, guid](std::vector<std::byte>&& packet) noexcept -> bool {
             auto currentHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
             if (!currentHook || !currentHook->mCallback) {
                 auto session = getSession(guid);
@@ -439,7 +451,7 @@ void ServerNetworkSystem::startPacketPumpIfNeeded(RakNet::RakNetGUID guid) {
             currentHook->mCallback(currentHook->mUserData, guid, std::move(packet));
             return true;
         },
-        [this, guid]() {
+        [this, guid]() noexcept {
             {
                 std::scoped_lock lock{mPacketPumpMutex};
                 mActivePacketPumps.erase(guid.g);
@@ -662,7 +674,7 @@ void ServerNetworkSystem::emitEvent(NetworkEvent event) {
     }
 
     auto sharedHandler = std::move(handler);
-    if (!mThreadPool->submit([event, sharedHandler = std::move(sharedHandler)]() mutable {
+    if (!mThreadPool->submit([event, sharedHandler = std::move(sharedHandler)]() mutable noexcept {
             if (sharedHandler && sharedHandler->mCallback) {
                 sharedHandler->mCallback(sharedHandler->mUserData, event);
             }
@@ -705,7 +717,7 @@ void ServerNetworkSystem::flushOutboundPackets() {
             continue;
         }
 
-        scheduleGuid(guidValue, nowNs + sendIntervalNs);
+        scheduleGuid(guidValue, nowNs);
     }
 
     const auto scheduledCount = mScheduledDueTimeByGuid.size();

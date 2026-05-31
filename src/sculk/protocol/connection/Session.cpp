@@ -14,12 +14,16 @@
 #include <PacketPriority.h>
 #include <RakNetStatistics.h>
 #include <chrono>
+#include <limits>
 
 namespace sculk::protocol::inline abi_v975 {
 
 namespace {
 
-constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID = 0xFE;
+constexpr std::uint8_t  MINECRAFT_BATCH_PACKET_ID      = 0xFE;
+constexpr std::uint64_t MANUAL_RECEIVE_PUMP_GENERATION = std::numeric_limits<std::uint64_t>::max();
+constexpr std::size_t   MAX_BATCH_DECOMPRESSED_BYTES   = 8U * 1024U * 1024U;
+constexpr std::size_t   MAX_BATCH_PACKET_BYTES         = 2U * 1024U * 1024U;
 
 [[nodiscard]] NetworkStatus::ConnectionState mapConnectionState(RakNet::ConnectionState state) noexcept {
     switch (state) {
@@ -39,15 +43,62 @@ constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID = 0xFE;
     }
 }
 
+[[nodiscard]] bool isReceivePumpCancelled(const Session& session, std::uint64_t expectedGeneration) noexcept {
+    if (expectedGeneration == MANUAL_RECEIVE_PUMP_GENERATION) {
+        return false;
+    }
+
+    return session.receivePumpGeneration() != expectedGeneration;
+}
+
+[[nodiscard]] PacketBuffer finalizeBatchedPayload(
+    PacketBuffer&&                                 packetsBuffer,
+    const std::optional<Session::CompressionType>& compressionType,
+    std::size_t                                    compressionThreshold
+) {
+    PacketBuffer finalBuffer{};
+    BinaryStream compressedStream{finalBuffer};
+
+    if (compressionType.has_value()) {
+        auto headerType = Session::CompressionType::None;
+        if (packetsBuffer.size() >= compressionThreshold) {
+            headerType = *compressionType;
+            switch (headerType) {
+            case Session::CompressionType::Zlib: {
+                packetsBuffer = compression::zlib::compress(packetsBuffer);
+                break;
+            }
+            case Session::CompressionType::Snappy: {
+                packetsBuffer = compression::snappy::compress(packetsBuffer);
+                break;
+            }
+            default:
+                break;
+            }
+        }
+
+        compressedStream.writeEnum(headerType, &BinaryStream::writeSignedChar);
+    }
+
+    compressedStream.writeAndMoveBuffer(std::move(packetsBuffer));
+
+    // TODO: encryption
+    return finalBuffer;
+}
+
 class ReceiveNotificationAwaitable final {
 public:
-    explicit ReceiveNotificationAwaitable(Session& session) noexcept : mSession(session) {}
+    ReceiveNotificationAwaitable(Session& session, std::uint64_t expectedGeneration) noexcept
+    : mSession(session),
+      mExpectedGeneration(expectedGeneration) {}
 
-    [[nodiscard]] bool await_ready() const noexcept { return mSession.hasPendingInboundPackets(); }
+    [[nodiscard]] bool await_ready() const noexcept {
+        return mSession.hasPendingInboundPackets() || isReceivePumpCancelled(mSession, mExpectedGeneration);
+    }
 
     bool await_suspend(std::coroutine_handle<> handle) noexcept {
         mSession.registerReceiveWaiter(handle);
-        if (mSession.hasPendingInboundPackets()) {
+        if (mSession.hasPendingInboundPackets() || isReceivePumpCancelled(mSession, mExpectedGeneration)) {
             mSession.notifyOneReceiver();
         }
         return true;
@@ -56,7 +107,8 @@ public:
     void await_resume() const noexcept {}
 
 private:
-    Session& mSession;
+    Session&      mSession;
+    std::uint64_t mExpectedGeneration;
 };
 
 } // namespace
@@ -66,7 +118,7 @@ Session::Session(RakNet::RakPeerInterface* peer, RakNet::AddressOrGUID remote, c
   mRemote(remote),
   mScheduler(scheduler) {}
 
-bool Session::sendPacket(std::span<const std::byte> buffer) noexcept {
+bool Session::sendPacket(std::span<const std::byte> buffer) {
     if (!mConnected.load(std::memory_order_relaxed)) {
         return false;
     }
@@ -76,7 +128,7 @@ bool Session::sendPacket(std::span<const std::byte> buffer) noexcept {
     return mOutboundPackets.enqueue(std::move(packet));
 }
 
-bool Session::sendPacket(std::vector<std::byte>&& buffer) noexcept {
+bool Session::sendPacket(std::vector<std::byte>&& buffer) {
     if (!mConnected.load(std::memory_order_relaxed)) {
         return false;
     }
@@ -86,17 +138,19 @@ bool Session::sendPacket(std::vector<std::byte>&& buffer) noexcept {
     return mOutboundPackets.enqueue(std::move(packet));
 }
 
-std::uint32_t
-Session::sendPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber) noexcept {
+std::uint32_t Session::sendPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber) {
     if (!mConnected.load(std::memory_order_relaxed) || !mPeer || buffer.empty()) {
         return 0;
     }
 
-    thread_local PacketBufferBatch singlePacketBatch;
-    singlePacketBatch.clear();
-    singlePacketBatch.emplace_back(buffer.begin(), buffer.end());
+    PacketBuffer packetsBuffer{};
+    packetsBuffer.reserve(buffer.size() + 5);
+    BinaryStream packetStream{packetsBuffer};
+    packetStream.writeUnsignedVarInt(static_cast<std::uint32_t>(buffer.size()));
+    packetStream.writeBytes(buffer.data(), buffer.size());
 
-    auto batched = serializeBatchedPackets(singlePacketBatch);
+    auto batched = finalizeBatchedPayload(std::move(packetsBuffer), mCompressionType, mCompressionThreshold);
+
     if (batched.empty()) {
         return 0;
     }
@@ -106,6 +160,30 @@ Session::sendPacketImmediately(std::span<const std::byte> buffer, std::uint32_t 
     framed.push_back(static_cast<std::byte>(MINECRAFT_BATCH_PACKET_ID));
     framed.insert(framed.end(), batched.begin(), batched.end());
     return sendRawPacketImmediately(framed, forceReceiptNumber);
+}
+
+coro::Task<Result<std::vector<std::byte>>> Session::receivePacketAsync() {
+    co_return co_await receivePacketAsync(MANUAL_RECEIVE_PUMP_GENERATION);
+}
+
+coro::Task<Result<std::vector<std::byte>>> Session::receivePacketAsync(std::uint64_t expectedGeneration) {
+    std::vector<std::byte> output;
+    for (;;) {
+        if (isReceivePumpCancelled(*this, expectedGeneration)) {
+            co_return error_utils::makeError("receive pump cancelled");
+        }
+
+        if (receivePacket(output)) {
+            // Once dequeued, keep packet order stable by returning the packet directly.
+            co_return std::move(output);
+        }
+
+        if (!isConnected()) {
+            co_return error_utils::makeError("session disconnected");
+        }
+
+        co_await ReceiveNotificationAwaitable{*this, expectedGeneration};
+    }
 }
 
 std::uint32_t
@@ -128,21 +206,6 @@ Session::sendRawPacketImmediately(std::span<const std::byte> buffer, std::uint32
 
 bool Session::receivePacket(std::vector<std::byte>& outBuffer) noexcept {
     return mInboundPackets.try_dequeue(outBuffer);
-}
-
-coro::Task<Result<std::vector<std::byte>>> Session::receivePacketAsync() {
-    std::vector<std::byte> output;
-    for (;;) {
-        if (receivePacket(output)) {
-            co_return output;
-        }
-
-        if (!isConnected()) {
-            co_return error_utils::makeError("session disconnected");
-        }
-
-        co_await ReceiveNotificationAwaitable{*this};
-    }
 }
 
 bool Session::hasPendingInboundPackets() const noexcept { return mInboundPackets.size_approx() > 0; }
@@ -252,6 +315,27 @@ void Session::markDisconnected() noexcept {
     }
 }
 
+std::uint64_t Session::receivePumpGeneration() const noexcept {
+    return mReceivePumpGeneration.load(std::memory_order_acquire);
+}
+
+void Session::cancelReceiveWaiters() noexcept {
+    mReceivePumpGeneration.fetch_add(1, std::memory_order_acq_rel);
+
+    std::coroutine_handle<> handle;
+    while (mReceiveWaiters.try_dequeue(handle)) {
+        if (mScheduler) {
+            if (mScheduler->schedule(handle)) {
+                continue;
+            }
+        }
+
+        if (handle) {
+            handle.resume();
+        }
+    }
+}
+
 bool Session::enqueueInboundPacket(std::vector<std::byte>&& buffer) noexcept {
     if (!mConnected.load(std::memory_order_relaxed)) {
         return false;
@@ -287,34 +371,7 @@ PacketBuffer Session::serializeBatchedPackets(const PacketBufferBatch& packets) 
         packetStream.writeBytes(packet.data(), packet.size());
     }
 
-    PacketBuffer finalBuffer{};
-    BinaryStream compressedStream{finalBuffer};
-
-    if (isCompressed()) {
-        CompressionType headerType = CompressionType::None;
-        if (packetsBuffer.size() >= mCompressionThreshold) {
-            headerType = *mCompressionType;
-            switch (headerType) {
-            case CompressionType::Zlib: {
-                packetsBuffer = compression::zlib::compress(packetsBuffer);
-                break;
-            }
-            case CompressionType::Snappy: {
-                packetsBuffer = compression::snappy::compress(packetsBuffer);
-                break;
-            }
-            default:
-                break;
-            }
-        }
-
-        compressedStream.writeEnum(headerType, &BinaryStream::writeSignedChar);
-    }
-    compressedStream.writeAndMoveBuffer(std::move(packetsBuffer));
-
-    // TODO: encryption
-
-    return finalBuffer;
+    return finalizeBatchedPayload(std::move(packetsBuffer), mCompressionType, mCompressionThreshold);
 }
 
 Result<PacketBufferBatch> Session::deserializeBatchPackets(std::span<const std::byte> batchedBuffer) {
@@ -355,6 +412,10 @@ Result<PacketBufferBatch> Session::deserializeBatchPackets(std::span<const std::
         decompressedBuffer.assign(batchedBuffer.begin(), batchedBuffer.end());
     }
 
+    if (decompressedBuffer.size() > MAX_BATCH_DECOMPRESSED_BYTES) {
+        return error_utils::makeError("batched payload exceeds configured size limit");
+    }
+
     ReadOnlyBinaryStream stream{decompressedBuffer};
     PacketBufferBatch    packets{};
 
@@ -362,6 +423,13 @@ Result<PacketBufferBatch> Session::deserializeBatchPackets(std::span<const std::
         std::uint32_t packetSize{};
         if (!stream.readUnsignedVarInt(packetSize)) {
             return error_utils::makeError("failed to read batched packet size");
+        }
+        if (packetSize > MAX_BATCH_PACKET_BYTES) {
+            return error_utils::makeError("batched packet exceeds configured size limit");
+        }
+        const auto remaining = stream.size() - stream.getPosition();
+        if (static_cast<std::size_t>(packetSize) > remaining) {
+            return error_utils::makeError("batched packet size exceeds remaining payload");
         }
         std::vector<std::byte> packetData(packetSize, std::byte{});
         if (!stream.readBytes(packetData.data(), packetSize)) {

@@ -8,6 +8,7 @@
 #pragma once
 #include "Scheduler.hpp"
 #include "sculk/protocol/utility/Result.hpp"
+#include <concepts>
 #include <coroutine>
 #include <optional>
 #include <type_traits>
@@ -33,6 +34,8 @@ inline constexpr bool is_result_type_v = is_result_type<T>::value;
 template <typename T>
 class [[nodiscard]] Task final {
     static_assert(is_result_type_v<T>, "Task only supports Result<T> payloads");
+    static_assert(std::is_nothrow_move_constructible_v<T>, "Task payload must be nothrow-move-constructible");
+    static_assert(std::is_nothrow_destructible_v<T>, "Task payload must be nothrow-destructible");
 
 public:
     struct promise_type;
@@ -63,7 +66,7 @@ public:
 
         template <typename U>
             requires std::constructible_from<T, U&&>
-        void return_value(U&& input) {
+        void return_value(U&& input) noexcept(noexcept(mValue.emplace(std::forward<U>(input)))) {
             mValue.emplace(std::forward<U>(input));
         }
 
@@ -91,7 +94,7 @@ public:
         return *this;
     }
 
-    ~Task() {
+    ~Task() noexcept {
         if (mHandle) {
             mHandle.destroy();
         }
@@ -120,8 +123,11 @@ public:
             return mHandle;
         }
 
-        T await_resume() {
+        T await_resume() noexcept {
             auto& promise = mHandle.promise();
+            if (!promise.mValue.has_value()) {
+                return error_utils::makeError("task completed without value");
+            }
             return std::move(*promise.mValue);
         }
     };

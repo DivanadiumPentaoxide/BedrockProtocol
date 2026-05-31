@@ -47,7 +47,7 @@ public:
 
         void return_void() const noexcept {}
 
-        void unhandled_exception() const noexcept { std::terminate(); }
+        void unhandled_exception() const noexcept {}
     };
 
     DetachedTask() = default;
@@ -96,7 +96,15 @@ inline void startDetached(coro::Scheduler& scheduler, DetachedTask task) {
 }
 
 template <typename Source, typename Sink, typename OnStop = std::nullptr_t>
-    requires std::invocable<Source&> && std::invocable<Sink&, std::vector<std::byte>&&>
+    requires std::invocable<Source&> && std::is_nothrow_invocable_v<Source&>
+          && std::same_as<std::invoke_result_t<Source&>, coro::Task<Result<std::vector<std::byte>>>>
+          && std::is_nothrow_move_constructible_v<Source> && std::invocable<Sink&, std::vector<std::byte>&&>
+          && std::is_nothrow_invocable_v<Sink&, std::vector<std::byte>&&> && std::is_nothrow_move_constructible_v<Sink>
+          && (std::same_as<std::invoke_result_t<Sink&, std::vector<std::byte> &&>, void>
+              || std::same_as<std::invoke_result_t<Sink&, std::vector<std::byte> &&>, bool>)
+          && (std::same_as<OnStop, std::nullptr_t>
+              || (std::invocable<OnStop&> && std::is_nothrow_invocable_v<OnStop&>
+                  && std::is_nothrow_move_constructible_v<OnStop>))
 DetachedTask packetPump(Source source, Sink sink, OnStop onStop = nullptr) {
     for (;;) {
         auto packet = co_await source();
@@ -122,7 +130,15 @@ DetachedTask packetPump(Source source, Sink sink, OnStop onStop = nullptr) {
 }
 
 template <typename Source, typename Sink, typename OnStop = std::nullptr_t>
-    requires std::invocable<Source&> && std::invocable<Sink&, std::vector<std::byte>&&>
+    requires std::invocable<Source&> && std::is_nothrow_invocable_v<Source&>
+          && std::same_as<std::invoke_result_t<Source&>, coro::Task<Result<std::vector<std::byte>>>>
+          && std::is_nothrow_move_constructible_v<Source> && std::invocable<Sink&, std::vector<std::byte>&&>
+          && std::is_nothrow_invocable_v<Sink&, std::vector<std::byte>&&> && std::is_nothrow_move_constructible_v<Sink>
+          && (std::same_as<std::invoke_result_t<Sink&, std::vector<std::byte> &&>, void>
+              || std::same_as<std::invoke_result_t<Sink&, std::vector<std::byte> &&>, bool>)
+          && (std::same_as<OnStop, std::nullptr_t>
+              || (std::invocable<OnStop&> && std::is_nothrow_invocable_v<OnStop&>
+                  && std::is_nothrow_move_constructible_v<OnStop>))
 inline void startPacketPump(coro::Scheduler& scheduler, Source source, Sink sink, OnStop onStop = nullptr) {
     startDetached(scheduler, packetPump(std::move(source), std::move(sink), std::move(onStop)));
 }

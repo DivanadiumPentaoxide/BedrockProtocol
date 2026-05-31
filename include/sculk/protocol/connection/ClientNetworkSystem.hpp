@@ -68,9 +68,9 @@ public:
 
     [[nodiscard]] bool isConnected() const noexcept;
 
-    [[nodiscard]] bool sendPacket(std::span<const std::byte> buffer) noexcept;
+    [[nodiscard]] bool sendPacket(std::span<const std::byte> buffer);
 
-    [[nodiscard]] std::uint32_t sendPacketImmediately(std::span<const std::byte> buffer) noexcept;
+    [[nodiscard]] std::uint32_t sendPacketImmediately(std::span<const std::byte> buffer);
 
     [[nodiscard]] bool receivePacket(std::vector<std::byte>& outBuffer) noexcept;
 
@@ -83,6 +83,9 @@ public:
 
     template <typename F>
         requires std::invocable<F&, const NetworkEvent&> && std::is_nothrow_invocable_v<F&, const NetworkEvent&>
+              && std::is_nothrow_constructible_v<std::decay_t<F>, F&&>
+              && std::is_nothrow_move_constructible_v<std::decay_t<F>>
+              && std::is_nothrow_destructible_v<std::decay_t<F>>
     bool setOnConnected(F&& handler) {
         return setOnEventWithLambda(mOnConnectedHandler, std::forward<F>(handler));
     }
@@ -91,6 +94,9 @@ public:
 
     template <typename F>
         requires std::invocable<F&, const NetworkEvent&> && std::is_nothrow_invocable_v<F&, const NetworkEvent&>
+              && std::is_nothrow_constructible_v<std::decay_t<F>, F&&>
+              && std::is_nothrow_move_constructible_v<std::decay_t<F>>
+              && std::is_nothrow_destructible_v<std::decay_t<F>>
     bool setOnDisconnected(F&& handler) {
         return setOnEventWithLambda(mOnDisconnectedHandler, std::forward<F>(handler));
     }
@@ -99,15 +105,21 @@ public:
 
     template <typename F>
         requires std::invocable<F&, const NetworkEvent&> && std::is_nothrow_invocable_v<F&, const NetworkEvent&>
+              && std::is_nothrow_constructible_v<std::decay_t<F>, F&&>
+              && std::is_nothrow_move_constructible_v<std::decay_t<F>>
+              && std::is_nothrow_destructible_v<std::decay_t<F>>
     bool setOnConnectionFailed(F&& handler) {
         return setOnEventWithLambda(mOnConnectionFailedHandler, std::forward<F>(handler));
     }
 
-    bool setOnPacketReceive(RawPacketReceiveCallback callback, void* userData = nullptr) noexcept;
+    bool setOnPacketReceive(RawPacketReceiveCallback callback, void* userData = nullptr);
 
     template <typename F>
         requires std::invocable<F&, std::vector<std::byte>&&>
               && std::is_nothrow_invocable_v<F&, std::vector<std::byte>&&>
+              && std::is_nothrow_constructible_v<std::decay_t<F>, F&&>
+              && std::is_nothrow_move_constructible_v<std::decay_t<F>>
+              && std::is_nothrow_destructible_v<std::decay_t<F>>
     bool setOnPacketReceive(F&& handler) {
         return setOnPacketWithLambda(std::forward<F>(handler));
     }
@@ -120,9 +132,9 @@ private:
     struct EventHook {
         RawEventCallback mCallback{};
         void*            mUserData{};
-        void (*mDestroyUserData)(void*){};
+        void (*mDestroyUserData)(void*) noexcept {};
 
-        ~EventHook() {
+        ~EventHook() noexcept {
             if (mDestroyUserData && mUserData) {
                 mDestroyUserData(mUserData);
             }
@@ -132,9 +144,9 @@ private:
     struct PacketHook {
         RawPacketReceiveCallback mCallback{};
         void*                    mUserData{};
-        void (*mDestroyUserData)(void*){};
+        void (*mDestroyUserData)(void*) noexcept {};
 
-        ~PacketHook() {
+        ~PacketHook() noexcept {
             if (mDestroyUserData && mUserData) {
                 mDestroyUserData(mUserData);
             }
@@ -168,10 +180,10 @@ private:
         std::atomic<std::shared_ptr<EventHook>>& target,
         RawEventCallback                         callback,
         void*                                    userData,
-        void (*destroyUserData)(void*)
+        void (*destroyUserData)(void*) noexcept
     ) noexcept;
 
-    bool setOnPacketRaw(RawPacketReceiveCallback callback, void* userData, void (*destroyUserData)(void*)) noexcept;
+    bool setOnPacketRaw(RawPacketReceiveCallback callback, void* userData, void (*destroyUserData)(void*) noexcept);
 
     template <typename F>
         requires std::invocable<F&, const NetworkEvent&> && std::is_nothrow_invocable_v<F&, const NetworkEvent&>
@@ -181,6 +193,19 @@ private:
         if constexpr (std::is_convertible_v<Handler, RawEventCallback>) {
             return setOnEventRaw(target, static_cast<RawEventCallback>(handler), nullptr, nullptr);
         } else {
+            static_assert(
+                std::is_nothrow_constructible_v<Handler, F&&>,
+                "event handler must be nothrow-constructible for no-exception mode"
+            );
+            static_assert(
+                std::is_nothrow_destructible_v<Handler>,
+                "event handler must be nothrow-destructible for no-exception mode"
+            );
+            static_assert(
+                std::is_nothrow_move_constructible_v<Handler>,
+                "event handler must be nothrow-move-constructible for no-exception mode"
+            );
+
             auto* stored = new (std::nothrow) Handler(std::forward<F>(handler));
             if (!stored) {
                 return false;
@@ -190,7 +215,7 @@ private:
                 target,
                 [](void* userData, const NetworkEvent& event) noexcept { (*static_cast<Handler*>(userData))(event); },
                 stored,
-                [](void* userData) { delete static_cast<Handler*>(userData); }
+                [](void* userData) noexcept { delete static_cast<Handler*>(userData); }
             );
         }
     }
@@ -204,6 +229,19 @@ private:
         if constexpr (std::is_convertible_v<Handler, RawPacketReceiveCallback>) {
             return setOnPacketRaw(static_cast<RawPacketReceiveCallback>(handler), nullptr, nullptr);
         } else {
+            static_assert(
+                std::is_nothrow_constructible_v<Handler, F&&>,
+                "packet handler must be nothrow-constructible for no-exception mode"
+            );
+            static_assert(
+                std::is_nothrow_destructible_v<Handler>,
+                "packet handler must be nothrow-destructible for no-exception mode"
+            );
+            static_assert(
+                std::is_nothrow_move_constructible_v<Handler>,
+                "packet handler must be nothrow-move-constructible for no-exception mode"
+            );
+
             auto* stored = new (std::nothrow) Handler(std::forward<F>(handler));
             if (!stored) {
                 return false;
@@ -214,7 +252,7 @@ private:
                     (*static_cast<Handler*>(userData))(std::move(packet));
                 },
                 stored,
-                [](void* userData) { delete static_cast<Handler*>(userData); }
+                [](void* userData) noexcept { delete static_cast<Handler*>(userData); }
             );
         }
     }

@@ -202,7 +202,7 @@ bool ClientNetworkSystem::isConnected() const noexcept {
     return session && session->isConnected();
 }
 
-bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) noexcept {
+bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session) {
         return false;
@@ -216,7 +216,7 @@ bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) noexcept
     return true;
 }
 
-std::uint32_t ClientNetworkSystem::sendPacketImmediately(std::span<const std::byte> buffer) noexcept {
+std::uint32_t ClientNetworkSystem::sendPacketImmediately(std::span<const std::byte> buffer) {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session || buffer.empty()) {
         return 0;
@@ -276,7 +276,7 @@ bool ClientNetworkSystem::setOnConnectionFailed(RawEventCallback callback, void*
     return setOnEventRaw(mOnConnectionFailedHandler, callback, userData, nullptr);
 }
 
-bool ClientNetworkSystem::setOnPacketReceive(RawPacketReceiveCallback callback, void* userData) noexcept {
+bool ClientNetworkSystem::setOnPacketReceive(RawPacketReceiveCallback callback, void* userData) {
     return setOnPacketRaw(callback, userData, nullptr);
 }
 
@@ -284,7 +284,7 @@ bool ClientNetworkSystem::setOnEventRaw(
     std::atomic<std::shared_ptr<EventHook>>& target,
     RawEventCallback                         callback,
     void*                                    userData,
-    void (*destroyUserData)(void*)
+    void (*destroyUserData)(void*) noexcept
 ) noexcept {
     if (!callback) {
         if (destroyUserData && userData) {
@@ -311,13 +311,17 @@ bool ClientNetworkSystem::setOnEventRaw(
 bool ClientNetworkSystem::setOnPacketRaw(
     RawPacketReceiveCallback callback,
     void*                    userData,
-    void (*destroyUserData)(void*)
-) noexcept {
+    void (*destroyUserData)(void*) noexcept
+) {
     if (!callback) {
         if (destroyUserData && userData) {
             destroyUserData(userData);
         }
         mOnPacketReceiveHandler.store(std::shared_ptr<PacketHook>{}, std::memory_order_release);
+        auto session = mSession.load(std::memory_order_acquire);
+        if (session) {
+            session->cancelReceiveWaiters();
+        }
         return false;
     }
 
@@ -354,10 +358,14 @@ void ClientNetworkSystem::startPacketPumpIfNeeded() {
         return;
     }
 
-    coro::startClientReceivePump(
+    const auto expectedGeneration = session->receivePumpGeneration();
+
+    coro::startPacketPump(
         mScheduler,
-        *this,
-        [this](std::vector<std::byte>&& packet) -> bool {
+        [session, expectedGeneration]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
+            co_return co_await session->receivePacketAsync(expectedGeneration);
+        },
+        [this](std::vector<std::byte>&& packet) noexcept -> bool {
             auto currentHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
             if (!currentHook || !currentHook->mCallback) {
                 auto session = mSession.load(std::memory_order_acquire);
@@ -370,7 +378,7 @@ void ClientNetworkSystem::startPacketPumpIfNeeded() {
             currentHook->mCallback(currentHook->mUserData, std::move(packet));
             return true;
         },
-        [this]() {
+        [this]() noexcept {
             mPacketPumpActive.store(false, std::memory_order_release);
 
             auto currentHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
@@ -422,8 +430,12 @@ bool ClientNetworkSystem::ioTickOnce() noexcept {
         mPeer->DeallocatePacket(packet);
     }
 
+    auto       session = mSession.load(std::memory_order_acquire);
+    const bool hasPendingSendWork =
+        session && (session->hasPendingOutboundPackets() || mImmediateSends.size_approx() > 0);
+
     const auto now = std::chrono::steady_clock::now();
-    if (now - mLastFlushTime >= SEND_FLUSH_INTERVAL) {
+    if (hasPendingSendWork || now - mLastFlushTime >= SEND_FLUSH_INTERVAL) {
         flushOutboundPackets();
         mLastFlushTime = now;
         progressed     = true;
@@ -527,7 +539,7 @@ void ClientNetworkSystem::emitEvent(NetworkEvent event) {
     }
 
     auto sharedHandler = std::move(handler);
-    if (!mThreadPool->submit([event, sharedHandler = std::move(sharedHandler)]() mutable {
+    if (!mThreadPool->submit([event, sharedHandler = std::move(sharedHandler)]() mutable noexcept {
             if (sharedHandler && sharedHandler->mCallback) {
                 sharedHandler->mCallback(sharedHandler->mUserData, event);
             }
