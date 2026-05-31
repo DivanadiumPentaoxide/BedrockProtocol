@@ -9,8 +9,8 @@
 #include "sculk/protocol/connection/coro/PumpAdapters.hpp"
 #include <MessageIdentifiers.h>
 #include <RakNetTypes.h>
-#include <atomic>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <thread>
@@ -19,11 +19,37 @@ namespace sculk::protocol::inline abi_v975 {
 
 namespace {
 
-constexpr auto         RECEIVE_IDLE_SLEEP         = std::chrono::milliseconds(1);
-constexpr auto         SEND_FLUSH_INTERVAL        = std::chrono::milliseconds(20);
-constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID  = 0xFE;
-constexpr std::size_t  MAX_POOLED_PACKET_CAPACITY = 1U << 20;
-constexpr std::size_t  MAX_POOLED_PACKET_COUNT    = 1024;
+constexpr auto          RECEIVE_IDLE_SLEEP          = std::chrono::milliseconds(1);
+constexpr auto          SEND_FLUSH_INTERVAL         = std::chrono::milliseconds(20);
+constexpr std::uint8_t  MINECRAFT_BATCH_PACKET_ID   = 0xFE;
+constexpr std::size_t   MAX_POOLED_PACKET_CAPACITY  = 1U << 20;
+constexpr std::size_t   MAX_POOLED_PACKET_COUNT     = 64;
+constexpr std::size_t   MAX_RETAINED_BATCH_CAPACITY = 256;
+constexpr std::size_t   MAX_OUTBOUND_QUEUE_PACKETS  = 256;
+constexpr std::uint64_t MAX_BYTES_QUEUED_FOR_SEND   = 32ULL * 1024ULL * 1024ULL;
+constexpr std::uint64_t MAX_BYTES_IN_RESEND_BUFFER  = 32ULL * 1024ULL * 1024ULL;
+constexpr std::size_t   MAX_IMMEDIATE_SEND_QUEUE    = 2048;
+
+template <typename T>
+void trimVectorCapacity(std::vector<T>& vec, std::size_t maxCapacity) {
+    if (vec.capacity() <= maxCapacity) {
+        return;
+    }
+
+    std::vector<T> released{};
+    vec.swap(released);
+}
+
+[[nodiscard]] bool isSessionBackpressured(const Session& session) noexcept {
+    const auto status = session.getNetworkStatus();
+    if (!status.getConnected()) {
+        return true;
+    }
+
+    return status.getOutboundQueueApprox() > MAX_OUTBOUND_QUEUE_PACKETS
+        || status.getBytesQueuedForSend() > MAX_BYTES_QUEUED_FOR_SEND
+        || status.getBytesInResendBuffer() > MAX_BYTES_IN_RESEND_BUFFER;
+}
 
 class PacketBufferPool final {
 public:
@@ -229,6 +255,10 @@ bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) {
         return false;
     }
 
+    if (isSessionBackpressured(*session)) {
+        return false;
+    }
+
     if (!session->sendPacket(buffer)) {
         return false;
     }
@@ -240,6 +270,14 @@ bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) {
 std::uint32_t ClientNetworkSystem::sendPacketImmediately(std::span<const std::byte> buffer) {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session || buffer.empty()) {
+        return 0;
+    }
+
+    if (isSessionBackpressured(*session)) {
+        return 0;
+    }
+
+    if (mImmediateSends.size_approx() >= MAX_IMMEDIATE_SEND_QUEUE) {
         return 0;
     }
 
@@ -577,7 +615,7 @@ void ClientNetworkSystem::flushOutboundPackets() {
 
     ImmediateSendRequest immediate;
     while (mImmediateSends.try_dequeue(immediate)) {
-        if (immediate.mSession && immediate.mSession->isConnected()) {
+        if (immediate.mSession && immediate.mSession->isConnected() && !isSessionBackpressured(*immediate.mSession)) {
             (void)immediate.mSession->sendPacketImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
         }
     }
@@ -585,6 +623,7 @@ void ClientNetworkSystem::flushOutboundPackets() {
     thread_local OutboundBatch outboundBatch;
     outboundBatch.clear();
     if (session->tryDequeueAllOutboundPackets(outboundBatch) == 0) {
+        trimVectorCapacity(outboundBatch, MAX_RETAINED_BATCH_CAPACITY);
         return;
     }
 
@@ -604,6 +643,9 @@ void ClientNetworkSystem::flushOutboundPackets() {
             gPacketBufferPool.release(std::move(framed));
         }
     }
+
+    trimVectorCapacity(outboundBatch, MAX_RETAINED_BATCH_CAPACITY);
+    trimVectorCapacity(payloadBatch, MAX_RETAINED_BATCH_CAPACITY);
 }
 
 void ClientNetworkSystem::RakPeerDeleter::operator()(RakNet::RakPeerInterface* peer) const noexcept {

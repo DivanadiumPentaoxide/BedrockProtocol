@@ -9,9 +9,9 @@
 #include "sculk/protocol/connection/coro/PumpAdapters.hpp"
 #include <MessageIdentifiers.h>
 #include <RakNetTypes.h>
-#include <atomic>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <limits>
@@ -21,19 +21,24 @@ namespace sculk::protocol::inline abi_v975 {
 
 namespace {
 
-constexpr auto         RECEIVE_IDLE_SLEEP               = std::chrono::milliseconds(1);
-constexpr auto         SEND_FLUSH_INTERVAL              = std::chrono::milliseconds(20);
-constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID        = 0xFE;
-constexpr std::size_t  MAX_POOLED_PACKET_CAPACITY       = 1U << 20;
-constexpr std::size_t  MAX_POOLED_PACKET_COUNT          = 2048;
-constexpr std::size_t  HARD_MAX_SESSIONS_PER_FLUSH_PASS = 2048;
-constexpr auto         HARD_MAX_FLUSH_TIME_BUDGET       = std::chrono::milliseconds(8);
-constexpr std::size_t  ADAPTIVE_BUDGET_LEVELS           = 4;
-constexpr std::size_t  LOW_LOAD_FAST_PATH_MAX_SCHEDULED = 64;
-constexpr std::size_t  LOW_LOAD_SESSION_BUDGET          = 32;
-constexpr auto         LOW_LOAD_TIME_BUDGET             = std::chrono::microseconds(700);
-constexpr std::uint8_t PROMOTE_STREAK_THRESHOLD         = 3;
-constexpr std::uint8_t DEMOTE_STREAK_THRESHOLD          = 8;
+constexpr auto          RECEIVE_IDLE_SLEEP               = std::chrono::milliseconds(1);
+constexpr auto          SEND_FLUSH_INTERVAL              = std::chrono::milliseconds(20);
+constexpr std::uint8_t  MINECRAFT_BATCH_PACKET_ID        = 0xFE;
+constexpr std::size_t   MAX_POOLED_PACKET_CAPACITY       = 1U << 20;
+constexpr std::size_t   MAX_POOLED_PACKET_COUNT          = 64;
+constexpr std::size_t   MAX_RETAINED_BATCH_CAPACITY      = 256;
+constexpr std::size_t   MAX_OUTBOUND_QUEUE_PACKETS       = 256;
+constexpr std::uint64_t MAX_BYTES_QUEUED_FOR_SEND        = 32ULL * 1024ULL * 1024ULL;
+constexpr std::uint64_t MAX_BYTES_IN_RESEND_BUFFER       = 32ULL * 1024ULL * 1024ULL;
+constexpr std::size_t   MAX_IMMEDIATE_SEND_QUEUE         = 4096;
+constexpr std::size_t   HARD_MAX_SESSIONS_PER_FLUSH_PASS = 2048;
+constexpr auto          HARD_MAX_FLUSH_TIME_BUDGET       = std::chrono::milliseconds(8);
+constexpr std::size_t   ADAPTIVE_BUDGET_LEVELS           = 4;
+constexpr std::size_t   LOW_LOAD_FAST_PATH_MAX_SCHEDULED = 64;
+constexpr std::size_t   LOW_LOAD_SESSION_BUDGET          = 32;
+constexpr auto          LOW_LOAD_TIME_BUDGET             = std::chrono::microseconds(700);
+constexpr std::uint8_t  PROMOTE_STREAK_THRESHOLD         = 3;
+constexpr std::uint8_t  DEMOTE_STREAK_THRESHOLD          = 8;
 
 constexpr std::array<std::size_t, ADAPTIVE_BUDGET_LEVELS> SESSION_BUDGETS_PER_LEVEL{
     16,
@@ -68,6 +73,27 @@ struct PreparedSend {
     PacketBuffer  mPayload{};
     std::uint32_t mForceReceiptNumber{};
 };
+
+template <typename T>
+void trimVectorCapacity(std::vector<T>& vec, std::size_t maxCapacity) {
+    if (vec.capacity() <= maxCapacity) {
+        return;
+    }
+
+    std::vector<T> released{};
+    vec.swap(released);
+}
+
+[[nodiscard]] bool isSessionBackpressured(const Session& session) noexcept {
+    const auto status = session.getNetworkStatus();
+    if (!status.getConnected()) {
+        return true;
+    }
+
+    return status.getOutboundQueueApprox() > MAX_OUTBOUND_QUEUE_PACKETS
+        || status.getBytesQueuedForSend() > MAX_BYTES_QUEUED_FOR_SEND
+        || status.getBytesInResendBuffer() > MAX_BYTES_IN_RESEND_BUFFER;
+}
 
 class PacketBufferPool final {
 public:
@@ -141,6 +167,8 @@ void prepareBatchedSendsForSession(const std::shared_ptr<Session>& session, Prep
     payloadBatch.clear();
 
     if (session->tryDequeueAllOutboundPackets(outboundBatch) == 0) {
+        trimVectorCapacity(outboundBatch, MAX_RETAINED_BATCH_CAPACITY);
+        trimVectorCapacity(payloadBatch, MAX_RETAINED_BATCH_CAPACITY);
         return;
     }
 
@@ -156,6 +184,9 @@ void prepareBatchedSendsForSession(const std::shared_ptr<Session>& session, Prep
             outPrepared.mPayload = std::move(batched);
         }
     }
+
+    trimVectorCapacity(outboundBatch, MAX_RETAINED_BATCH_CAPACITY);
+    trimVectorCapacity(payloadBatch, MAX_RETAINED_BATCH_CAPACITY);
 }
 
 } // namespace
@@ -261,7 +292,7 @@ bool ServerNetworkSystem::isRunning() const noexcept { return mRunning.load(std:
 
 bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
     auto session = getSession(guid);
-    if (!session || !session->sendPacket(buffer)) {
+    if (!session || isSessionBackpressured(*session) || !session->sendPacket(buffer)) {
         return false;
     }
 
@@ -275,7 +306,7 @@ bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::span<const 
 
 bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
     auto session = getSession(guid);
-    if (!session || !session->sendPacket(std::move(buffer))) {
+    if (!session || isSessionBackpressured(*session) || !session->sendPacket(std::move(buffer))) {
         return false;
     }
 
@@ -289,7 +320,11 @@ bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::vector<std:
 
 std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
     auto session = getSession(guid);
-    if (!session || buffer.empty()) {
+    if (!session || buffer.empty() || isSessionBackpressured(*session)) {
+        return 0;
+    }
+
+    if (mImmediateSends.size_approx() >= MAX_IMMEDIATE_SEND_QUEUE) {
         return 0;
     }
 
@@ -310,7 +345,11 @@ std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID gu
 
 std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
     auto session = getSession(guid);
-    if (!session || buffer.empty()) {
+    if (!session || buffer.empty() || isSessionBackpressured(*session)) {
+        return 0;
+    }
+
+    if (mImmediateSends.size_approx() >= MAX_IMMEDIATE_SEND_QUEUE) {
         return 0;
     }
 
@@ -727,7 +766,8 @@ void ServerNetworkSystem::flushOutboundPackets() {
     ImmediateSendRequest immediate;
     while (mImmediateSends.try_dequeue(immediate)) {
         auto it = sessionsSnapshot->find(immediate.mGuid);
-        if (it != sessionsSnapshot->end() && it->second && it->second->isConnected()) {
+        if (it != sessionsSnapshot->end() && it->second && it->second->isConnected()
+            && !isSessionBackpressured(*it->second)) {
             (void)it->second->sendPacketImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
         }
     }
