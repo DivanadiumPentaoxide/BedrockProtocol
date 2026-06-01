@@ -6,11 +6,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/utility/Result.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 
 struct evp_cipher_ctx_st;
@@ -38,6 +40,13 @@ public:
     std::vector<std::byte> decrypt(std::span<const std::byte> bytes);
 
     bool verify(std::span<const std::byte> bytes);
+
+public:
+    static Result<std::vector<std::byte>>
+    deriveSessionKey(std::span<const std::byte> token, std::span<const std::byte> sharedSecret);
+
+    static Result<std::vector<std::byte>>
+    computeEcdhSharedSecret(const std::string& localPrivateKeyPem, const std::string& remotePublicKeyPem);
 
 private:
     static constexpr std::size_t CHECKSUM_SIZE  = 8;

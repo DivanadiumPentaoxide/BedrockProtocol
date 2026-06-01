@@ -276,9 +276,9 @@ void ServerNetworkSystem::stop() {
 
 bool ServerNetworkSystem::isRunning() const noexcept { return mRunning.load(std::memory_order_acquire); }
 
-bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
+bool ServerNetworkSystem::sendBuffer(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
     auto session = getSession(guid);
-    if (!session || !session->sendPacket(buffer)) {
+    if (!session || !session->sendPacketBuffer(buffer)) {
         return false;
     }
 
@@ -290,9 +290,9 @@ bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::span<const 
     return true;
 }
 
-bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
+bool ServerNetworkSystem::sendBuffer(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
     auto session = getSession(guid);
-    if (!session || !session->sendPacket(std::move(buffer))) {
+    if (!session || !session->sendPacketBuffer(std::move(buffer))) {
         return false;
     }
 
@@ -304,7 +304,7 @@ bool ServerNetworkSystem::sendToClient(RakNet::RakNetGUID guid, std::vector<std:
     return true;
 }
 
-std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
+std::uint32_t ServerNetworkSystem::sendBufferImmediately(RakNet::RakNetGUID guid, std::span<const std::byte> buffer) {
     auto session = getSession(guid);
     if (!session || buffer.empty()) {
         return 0;
@@ -329,7 +329,7 @@ std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID gu
     return receipt;
 }
 
-std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
+std::uint32_t ServerNetworkSystem::sendBufferImmediately(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer) {
     auto session = getSession(guid);
     if (!session || buffer.empty()) {
         return 0;
@@ -353,18 +353,18 @@ std::uint32_t ServerNetworkSystem::sendToClientImmediately(RakNet::RakNetGUID gu
     return receipt;
 }
 
-bool ServerNetworkSystem::receiveFromClient(RakNet::RakNetGUID guid, std::vector<std::byte>& outBuffer) noexcept {
+bool ServerNetworkSystem::receiveBuffer(RakNet::RakNetGUID guid, std::vector<std::byte>& outBuffer) noexcept {
     auto session = getSession(guid);
-    return session ? session->receivePacket(outBuffer) : false;
+    return session ? session->receivePacketBuffer(outBuffer) : false;
 }
 
-coro::Task<Result<std::vector<std::byte>>> ServerNetworkSystem::receiveFromClientAsync(RakNet::RakNetGUID guid) {
+coro::Task<Result<std::vector<std::byte>>> ServerNetworkSystem::receiveBufferAsync(RakNet::RakNetGUID guid) {
     auto session = getSession(guid);
     if (!session) {
         co_return error_utils::makeError("no active session");
     }
 
-    co_return co_await session->receivePacketAsync();
+    co_return co_await session->receivePacketBufferAsync();
 }
 
 bool ServerNetworkSystem::getClientNetworkStatus(RakNet::RakNetGUID guid, NetworkStatus& outStatus) const noexcept {
@@ -482,7 +482,7 @@ void ServerNetworkSystem::startPacketPumpIfNeeded(RakNet::RakNetGUID guid) {
     coro::startPacketPump(
         mScheduler,
         [session, expectedGeneration]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
-            co_return co_await session->receivePacketAsync(expectedGeneration);
+            co_return co_await session->receivePacketBufferAsync(expectedGeneration);
         },
         [this, guid](std::vector<std::byte>&& packet) noexcept -> bool {
             auto currentHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
@@ -753,7 +753,7 @@ void ServerNetworkSystem::flushOutboundPackets() {
     while (mImmediateSends.try_dequeue(immediate)) {
         auto it = sessionsSnapshot->find(immediate.mGuid);
         if (it != sessionsSnapshot->end() && it->second && it->second->isConnected()) {
-            (void)it->second->sendPacketImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
+            (void)it->second->sendPacketBufferImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
         }
     }
 
@@ -853,7 +853,7 @@ void ServerNetworkSystem::flushOutboundPackets() {
             prepareBatchedSendsForSession(session, prepared);
             if (!prepared.mPayload.empty()) {
                 auto framed = prependMinecraftBatchHeader(prepared.mPayload);
-                (void)session->sendRawPacketImmediately(framed, prepared.mForceReceiptNumber);
+                (void)session->sendBatchedPacketBufferImmediately(framed, prepared.mForceReceiptNumber);
                 gPacketBufferPool.release(std::move(framed));
             }
 

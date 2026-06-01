@@ -7,14 +7,95 @@
 
 #include "sculk/protocol/connection/encryption/CryptoManager.hpp"
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <openssl/ec.h>
 #include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
 namespace sculk::protocol::inline abi_v944 {
+
+Result<std::vector<std::byte>>
+CryptoManager::computeEcdhSharedSecret(const std::string& localPrivateKeyPem, const std::string& remotePublicKeyPem) {
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> localKey(nullptr, EVP_PKEY_free);
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> peerKey(nullptr, EVP_PKEY_free);
+    std::unique_ptr<BIO, decltype(&BIO_free)>           bio(nullptr, BIO_free);
+
+    bio.reset(BIO_new_file(localPrivateKeyPem.c_str(), "r"));
+    if (!bio) {
+        return error_utils::makeError("Failed to open local private key file");
+    }
+    localKey.reset(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr));
+    if (!localKey) {
+        return error_utils::makeError("Failed to load local private key");
+    }
+
+    bio.reset(BIO_new_file(remotePublicKeyPem.c_str(), "r"));
+    if (!bio) {
+        return error_utils::makeError("Failed to open peer public key file");
+    }
+    peerKey.reset(PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr));
+    if (!peerKey) {
+        return error_utils::makeError("Failed to load peer public key");
+    }
+
+    std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)> ctx(
+        EVP_PKEY_CTX_new(localKey.get(), nullptr),
+        EVP_PKEY_CTX_free
+    );
+    if (!ctx || EVP_PKEY_derive_init(ctx.get()) <= 0) {
+        return error_utils::makeError("Failed to initialize ECDH context");
+    }
+
+    if (EVP_PKEY_derive_set_peer(ctx.get(), peerKey.get()) <= 0) {
+        return error_utils::makeError("Failed to set peer public key");
+    }
+
+    size_t secretLen = 0;
+    if (EVP_PKEY_derive(ctx.get(), nullptr, &secretLen) <= 0) {
+        return error_utils::makeError("Failed to get shared secret length");
+    }
+
+    std::vector<std::byte> sharedSecret(secretLen);
+    if (EVP_PKEY_derive(ctx.get(), reinterpret_cast<std::uint8_t*>(sharedSecret.data()), &secretLen) <= 0) {
+        return error_utils::makeError("Failed to compute shared secret");
+    }
+
+    return sharedSecret;
+}
+
+Result<std::vector<std::byte>>
+CryptoManager::deriveSessionKey(std::span<const std::byte> token, std::span<const std::byte> sharedSecret) {
+    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> mdctx(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
+    if (!mdctx) {
+        return error_utils::makeError("Failed to create digest context");
+    }
+
+    if (EVP_DigestInit_ex(mdctx.get(), EVP_sha256(), nullptr) != 1) {
+        return error_utils::makeError("Failed to initialize SHA-256");
+    }
+
+    if (EVP_DigestUpdate(mdctx.get(), token.data(), token.size()) != 1) {
+        return error_utils::makeError("Failed to update digest with token");
+    }
+    if (EVP_DigestUpdate(mdctx.get(), sharedSecret.data(), sharedSecret.size()) != 1) {
+        return error_utils::makeError("Failed to update digest with shared secret");
+    }
+
+    std::vector<std::byte> sessionKey(32);
+    std::uint32_t          len = 0;
+    if (EVP_DigestFinal_ex(mdctx.get(), reinterpret_cast<std::uint8_t*>(sessionKey.data()), &len) != 1) {
+        return error_utils::makeError("Failed to finalize digest");
+    }
+
+    return sessionKey;
+}
 
 namespace {
 
@@ -60,9 +141,9 @@ CryptoManager::checksum(std::uint64_t counter, const std::byte* data, std::size_
     std::array<std::byte, CHECKSUM_SIZE> counterBytes{};
     writeLittleEndian64(counterBytes, counter);
 
-    std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
-    unsigned int                               digestSize = 0;
-    EvpMdCtxPtr                                ctx(EVP_MD_CTX_new());
+    std::array<std::uint8_t, EVP_MAX_MD_SIZE> digest{};
+    std::uint32_t                             digestSize = 0;
+    EvpMdCtxPtr                               ctx(EVP_MD_CTX_new());
     if (!ctx || EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) != 1
         || EVP_DigestUpdate(ctx.get(), counterBytes.data(), counterBytes.size()) != 1
         || (dataSize != 0 && EVP_DigestUpdate(ctx.get(), data, dataSize) != 1)
@@ -88,8 +169,8 @@ bool CryptoManager::initializeCipher(EvpCipherCtxPtr& ctx, bool encrypt) const {
                ctx.get(),
                cipher,
                nullptr,
-               reinterpret_cast<const unsigned char*>(mKeyBytes.data()),
-               reinterpret_cast<const unsigned char*>(mInitialCounterBlock.data()),
+               reinterpret_cast<const std::uint8_t*>(mKeyBytes.data()),
+               reinterpret_cast<const std::uint8_t*>(mInitialCounterBlock.data()),
                encrypt ? 1 : 0
            ) == 1
         && EVP_CIPHER_CTX_set_padding(ctx.get(), 0) == 1;
@@ -108,9 +189,9 @@ std::vector<std::byte> CryptoManager::ctrCrypt(EvpCipherCtxPtr& ctx, std::span<c
     int        outLen = 0;
     const bool ok     = EVP_CipherUpdate(
                             ctx.get(),
-                            reinterpret_cast<unsigned char*>(output.data()),
+                            reinterpret_cast<std::uint8_t*>(output.data()),
                             &outLen,
-                            reinterpret_cast<const unsigned char*>(bytes.data()),
+                            reinterpret_cast<const std::uint8_t*>(bytes.data()),
                             static_cast<int>(bytes.size())
                         )
                      == 1;

@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/auth/LegacyCertificateChain.hpp"
+#include "../ssl/ES384.hpp"
 #include "sculk/reflection/jsonc/reflection.hpp"
-#include "ssl/ES384.hpp"
 
 namespace sculk::protocol::inline abi_v975 {
 

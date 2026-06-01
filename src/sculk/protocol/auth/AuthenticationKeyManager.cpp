@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/auth/AuthenticationKeyManager.hpp"
-#include "ssl/ES384.hpp"
-#include "ssl/RS256.hpp"
+#include "../ssl/ES384.hpp"
+#include "../ssl/RS256.hpp"
 #include <httplib.h>
 #include <random>
 #include <sculk/reflection/jsonc/reflection.hpp>

@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/codec/packet/IPacket.hpp"
 #include "sculk/protocol/connection/NetworkStatus.hpp"
 #include "sculk/protocol/connection/coro/Task.hpp"
 #include "sculk/protocol/connection/encryption/CryptoManager.hpp"
@@ -82,28 +83,34 @@ public:
 
     void setEncrypted(std::vector<std::byte> key) noexcept { mEncryption.emplace(std::move(key)); }
 
+    bool sendPacket(const IPacket& packet);
+
+    bool sendPacketImmediately(const IPacket& packet);
+
     // Queue-based send. Network I/O thread flushes the queue later.
-    [[nodiscard]] bool sendPacket(std::span<const std::byte> buffer);
+    [[nodiscard]] bool sendPacketBuffer(std::span<const std::byte> buffer);
 
     // Move-friendly queue-based send.
-    [[nodiscard]] bool sendPacket(std::vector<std::byte>&& buffer);
+    [[nodiscard]] bool sendPacketBuffer(std::vector<std::byte>&& buffer);
 
     // Immediate send path for one logical packet. The packet is still wrapped into a batch before transport send.
     [[nodiscard]] std::uint32_t
-    sendPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber = 0);
+    sendPacketBufferImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber = 0);
 
     // Low-level immediate send for payloads that are already fully serialized for transport.
-    [[nodiscard]] std::uint32_t
-    sendRawPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber = 0) noexcept;
+    [[nodiscard]] std::uint32_t sendBatchedPacketBufferImmediately(
+        std::span<const std::byte> buffer,
+        std::uint32_t              forceReceiptNumber = 0
+    ) noexcept;
 
     // Non-blocking receive. Returns false when queue is empty.
-    [[nodiscard]] bool receivePacket(std::vector<std::byte>& outBuffer) noexcept;
+    [[nodiscard]] bool receivePacketBuffer(std::vector<std::byte>& outBuffer) noexcept;
 
     // Coroutine receive. Suspends until one packet is available.
     // Returns error when session is disconnected before new packet arrives.
-    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketAsync();
+    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketBufferAsync();
 
-    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketAsync(std::uint64_t expectedGeneration);
+    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketBufferAsync(std::uint64_t expectedGeneration);
 
     [[nodiscard]] bool hasPendingInboundPackets() const noexcept;
 

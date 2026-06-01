@@ -129,7 +129,21 @@ Session::Session(RakNet::RakPeerInterface* peer, RakNet::AddressOrGUID remote, c
   mRemote(remote),
   mScheduler(scheduler) {}
 
-bool Session::sendPacket(std::span<const std::byte> buffer) {
+bool Session::sendPacket(const IPacket& packet) {
+    std::vector<std::byte> buffer{};
+    BinaryStream           stream{buffer};
+    packet.writeWithHeader(stream);
+    return sendPacketBuffer(std::move(buffer));
+}
+
+bool Session::sendPacketImmediately(const IPacket& packet) {
+    std::vector<std::byte> buffer{};
+    BinaryStream           stream{buffer};
+    packet.writeWithHeader(stream);
+    return sendPacketBufferImmediately(std::move(buffer));
+}
+
+bool Session::sendPacketBuffer(std::span<const std::byte> buffer) {
     if (!mConnected.load(std::memory_order_relaxed)) {
         return false;
     }
@@ -150,7 +164,7 @@ bool Session::sendPacket(std::span<const std::byte> buffer) {
     return enqueued;
 }
 
-bool Session::sendPacket(std::vector<std::byte>&& buffer) {
+bool Session::sendPacketBuffer(std::vector<std::byte>&& buffer) {
     if (!mConnected.load(std::memory_order_relaxed)) {
         return false;
     }
@@ -171,7 +185,8 @@ bool Session::sendPacket(std::vector<std::byte>&& buffer) {
     return enqueued;
 }
 
-std::uint32_t Session::sendPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber) {
+std::uint32_t
+Session::sendPacketBufferImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber) {
     if (!mConnected.load(std::memory_order_relaxed) || !mPeer || buffer.empty()) {
         return 0;
     }
@@ -196,21 +211,21 @@ std::uint32_t Session::sendPacketImmediately(std::span<const std::byte> buffer, 
     framed.reserve(batched.size() + 1);
     framed.push_back(static_cast<std::byte>(MINECRAFT_BATCH_PACKET_ID));
     framed.insert(framed.end(), batched.begin(), batched.end());
-    return sendRawPacketImmediately(framed, forceReceiptNumber);
+    return sendBatchedPacketBufferImmediately(framed, forceReceiptNumber);
 }
 
-coro::Task<Result<std::vector<std::byte>>> Session::receivePacketAsync() {
-    co_return co_await receivePacketAsync(MANUAL_RECEIVE_PUMP_GENERATION);
+coro::Task<Result<std::vector<std::byte>>> Session::receivePacketBufferAsync() {
+    co_return co_await receivePacketBufferAsync(MANUAL_RECEIVE_PUMP_GENERATION);
 }
 
-coro::Task<Result<std::vector<std::byte>>> Session::receivePacketAsync(std::uint64_t expectedGeneration) {
+coro::Task<Result<std::vector<std::byte>>> Session::receivePacketBufferAsync(std::uint64_t expectedGeneration) {
     std::vector<std::byte> output;
     for (;;) {
         if (isReceivePumpCancelled(*this, expectedGeneration)) {
             co_return error_utils::makeError("receive pump cancelled");
         }
 
-        if (receivePacket(output)) {
+        if (receivePacketBuffer(output)) {
             // Once dequeued, keep packet order stable by returning the packet directly.
             co_return std::move(output);
         }
@@ -223,8 +238,10 @@ coro::Task<Result<std::vector<std::byte>>> Session::receivePacketAsync(std::uint
     }
 }
 
-std::uint32_t
-Session::sendRawPacketImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber) noexcept {
+std::uint32_t Session::sendBatchedPacketBufferImmediately(
+    std::span<const std::byte> buffer,
+    std::uint32_t              forceReceiptNumber
+) noexcept {
     if (!mConnected.load(std::memory_order_relaxed) || !mPeer || buffer.empty()) {
         return 0;
     }
@@ -241,7 +258,7 @@ Session::sendRawPacketImmediately(std::span<const std::byte> buffer, std::uint32
     );
 }
 
-bool Session::receivePacket(std::vector<std::byte>& outBuffer) noexcept {
+bool Session::receivePacketBuffer(std::vector<std::byte>& outBuffer) noexcept {
     std::vector<std::byte> packet;
     if (!mInboundPackets.try_dequeue(packet)) {
         return false;

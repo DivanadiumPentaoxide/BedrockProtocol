@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/auth/LoginToken.hpp"
-#include "ssl/ES384.hpp"
-#include "ssl/RS256.hpp"
+#include "../ssl/ES384.hpp"
+#include "../ssl/RS256.hpp"
 #include <sculk/reflection/jsonc/reflection.hpp>
 
 namespace sculk::protocol::inline abi_v975 {
@@ -242,9 +242,6 @@ Result<LoginToken> LoginToken::fromString(std::string_view rawLoginToken) {
     Header header{};
     SCULK_LOGIN_TOKEN_PARSE_JSON(header, rawHeader);
     SCULK_LOGIN_TOKEN_DESERIALIZE_REQUIRED(header, alg);
-    if (header.alg != "ES384" && header.alg != "RS256") {
-        return error_utils::makeError("Unsupported login token signing algorithm in header");
-    }
     SCULK_LOGIN_TOKEN_DESERIALIZE_OPTIONAL(header, kid);
     SCULK_LOGIN_TOKEN_DESERIALIZE_OPTIONAL(header, x5u);
     SCULK_LOGIN_TOKEN_DESERIALIZE_OPTIONAL(header, typ);

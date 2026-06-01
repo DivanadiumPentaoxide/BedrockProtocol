@@ -241,13 +241,13 @@ bool ClientNetworkSystem::isConnected() const noexcept {
     return session && session->isConnected();
 }
 
-bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) {
+bool ClientNetworkSystem::sendBuffer(std::span<const std::byte> buffer) {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session) {
         return false;
     }
 
-    if (!session->sendPacket(buffer)) {
+    if (!session->sendPacketBuffer(buffer)) {
         return false;
     }
 
@@ -255,7 +255,7 @@ bool ClientNetworkSystem::sendPacket(std::span<const std::byte> buffer) {
     return true;
 }
 
-std::uint32_t ClientNetworkSystem::sendPacketImmediately(std::span<const std::byte> buffer) {
+std::uint32_t ClientNetworkSystem::sendBufferImmediately(std::span<const std::byte> buffer) {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session || buffer.empty()) {
         return 0;
@@ -280,21 +280,21 @@ std::uint32_t ClientNetworkSystem::sendPacketImmediately(std::span<const std::by
     return receipt;
 }
 
-bool ClientNetworkSystem::receivePacket(std::vector<std::byte>& outBuffer) noexcept {
+bool ClientNetworkSystem::receiveBuffer(std::vector<std::byte>& outBuffer) noexcept {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session) {
         return false;
     }
-    return session->receivePacket(outBuffer);
+    return session->receivePacketBuffer(outBuffer);
 }
 
-coro::Task<Result<std::vector<std::byte>>> ClientNetworkSystem::receivePacketAsync() {
+coro::Task<Result<std::vector<std::byte>>> ClientNetworkSystem::receiveBufferAsync() {
     auto session = mSession.load(std::memory_order_acquire);
     if (!session) {
         co_return error_utils::makeError("no active session");
     }
 
-    co_return co_await session->receivePacketAsync();
+    co_return co_await session->receivePacketBufferAsync();
 }
 
 bool ClientNetworkSystem::getNetworkStatus(NetworkStatus& outStatus) const noexcept {
@@ -406,7 +406,7 @@ void ClientNetworkSystem::startPacketPumpIfNeeded() {
     coro::startPacketPump(
         mScheduler,
         [session, expectedGeneration]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
-            co_return co_await session->receivePacketAsync(expectedGeneration);
+            co_return co_await session->receivePacketBufferAsync(expectedGeneration);
         },
         [this](std::vector<std::byte>&& packet) noexcept -> bool {
             auto currentHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
@@ -606,7 +606,7 @@ void ClientNetworkSystem::flushOutboundPackets() {
     ImmediateSendRequest immediate;
     while (mImmediateSends.try_dequeue(immediate)) {
         if (immediate.mSession && immediate.mSession->isConnected()) {
-            (void)immediate.mSession->sendPacketImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
+            (void)immediate.mSession->sendPacketBufferImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
         }
     }
 
@@ -629,7 +629,7 @@ void ClientNetworkSystem::flushOutboundPackets() {
         auto batched = session->serializeBatchedPackets(payloadBatch);
         if (!batched.empty()) {
             auto framed = prependMinecraftBatchHeader(batched);
-            (void)session->sendRawPacketImmediately(framed);
+            (void)session->sendBatchedPacketBufferImmediately(framed);
             gPacketBufferPool.release(std::move(framed));
         }
     }

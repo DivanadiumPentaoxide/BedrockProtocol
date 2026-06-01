@@ -6,10 +6,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/auth/ConnectionRequest.hpp"
+#include "../ssl/PemHelper.hpp"
 #include "sculk/protocol/utility/Base64Url.hpp"
 #include "sculk/protocol/utility/BinaryStream.hpp"
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
-#include "ssl/PemHelper.hpp"
 #include <limits>
 #include <random>
 #include <sculk/reflection/jsonc/reflection.hpp>
@@ -191,10 +191,10 @@ inline void ensureAndFillLegacyChain(ConnectionRequest& request) {
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                        .identity    = "", // Empty identity
-                        .displayName = request.getXboxLiveName(),
-                        .XUID        = "",      // Empty XUID
-                        .sandBoxId   = "RETAIL" // Always "RETAIL"
+                          .identity    = "", // Empty identity
+                          .displayName = request.getXboxLiveName(),
+                          .XUID        = "",      // Empty XUID
+                          .sandBoxId   = "RETAIL" // Always "RETAIL"
                     }
                 }
             }

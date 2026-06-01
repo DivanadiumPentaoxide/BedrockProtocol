@@ -38,8 +38,8 @@ public:
 public:
     // Usage:
     // 1) connect(host, port)
-    // 2) sendPacket() for queued send, or sendPacketImmediately() for direct send
-    // 3) poll receivePacket(outBuffer) in your game loop
+    // 2) sendPacketBuffer() for queued send, or sendPacketBufferImmediately() for direct send
+    // 3) poll receivePacketBuffer(outBuffer) in your game loop
     // 4) disconnect() on shutdown
     explicit ClientNetworkSystem(std::size_t workerThreadCount = 0);
     explicit ClientNetworkSystem(thread::ThreadPool& threadPool);
@@ -68,13 +68,13 @@ public:
 
     [[nodiscard]] bool isConnected() const noexcept;
 
-    [[nodiscard]] bool sendPacket(std::span<const std::byte> buffer);
+    [[nodiscard]] bool sendBuffer(std::span<const std::byte> buffer);
 
-    [[nodiscard]] std::uint32_t sendPacketImmediately(std::span<const std::byte> buffer);
+    [[nodiscard]] std::uint32_t sendBufferImmediately(std::span<const std::byte> buffer);
 
-    [[nodiscard]] bool receivePacket(std::vector<std::byte>& outBuffer) noexcept;
+    [[nodiscard]] bool receiveBuffer(std::vector<std::byte>& outBuffer) noexcept;
 
-    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketAsync();
+    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receiveBufferAsync();
 
     // Returns false when no active session is available.
     [[nodiscard]] bool getNetworkStatus(NetworkStatus& outStatus) const noexcept;

@@ -39,8 +39,8 @@ public:
 public:
     // Usage:
     // 1) start(port, maxConnections)
-    // 2) call sendToClient()/sendToClientImmediately() from worker threads
-    // 3) poll receiveFromClient(guid, outBuffer) from your logic threads
+    // 2) call sendBuffer()/sendBufferImmediately() from worker threads
+    // 3) poll receiveBuffer(guid, outBuffer) from your logic threads
     // 4) stop() on shutdown
     explicit ServerNetworkSystem(std::size_t workerThreadCount = 0);
     explicit ServerNetworkSystem(thread::ThreadPool& threadPool);
@@ -63,17 +63,17 @@ public:
 
     [[nodiscard]] bool isRunning() const noexcept;
 
-    [[nodiscard]] bool sendToClient(RakNet::RakNetGUID guid, std::span<const std::byte> buffer);
+    [[nodiscard]] bool sendBuffer(RakNet::RakNetGUID guid, std::span<const std::byte> buffer);
 
-    [[nodiscard]] bool sendToClient(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer);
+    [[nodiscard]] bool sendBuffer(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer);
 
-    [[nodiscard]] std::uint32_t sendToClientImmediately(RakNet::RakNetGUID guid, std::span<const std::byte> buffer);
+    [[nodiscard]] std::uint32_t sendBufferImmediately(RakNet::RakNetGUID guid, std::span<const std::byte> buffer);
 
-    [[nodiscard]] std::uint32_t sendToClientImmediately(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer);
+    [[nodiscard]] std::uint32_t sendBufferImmediately(RakNet::RakNetGUID guid, std::vector<std::byte>&& buffer);
 
-    [[nodiscard]] bool receiveFromClient(RakNet::RakNetGUID guid, std::vector<std::byte>& outBuffer) noexcept;
+    [[nodiscard]] bool receiveBuffer(RakNet::RakNetGUID guid, std::vector<std::byte>& outBuffer) noexcept;
 
-    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receiveFromClientAsync(RakNet::RakNetGUID guid);
+    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receiveBufferAsync(RakNet::RakNetGUID guid);
 
     // Returns false when the target session does not exist.
     [[nodiscard]] bool getClientNetworkStatus(RakNet::RakNetGUID guid, NetworkStatus& outStatus) const noexcept;

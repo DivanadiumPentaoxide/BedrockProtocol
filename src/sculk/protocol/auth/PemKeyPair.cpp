@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/auth/PemKeyPair.hpp"
-#include "ssl/ES384.hpp"
-#include "ssl/RS256.hpp"
+#include "../ssl/ES384.hpp"
+#include "../ssl/RS256.hpp"
 
 namespace sculk::protocol::inline abi_v975::ssl {
 

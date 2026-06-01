@@ -28,7 +28,7 @@ inline void startSessionReceivePump(coro::Scheduler& scheduler, Session& session
     startPacketPump(
         scheduler,
         [&session]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
-            co_return co_await session.receivePacketAsync();
+            co_return co_await session.receivePacketBufferAsync();
         },
         std::move(sink),
         std::move(onStop)
@@ -46,7 +46,7 @@ startClientReceivePump(coro::Scheduler& scheduler, ClientNetworkSystem& client, 
     startPacketPump(
         scheduler,
         [&client]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
-            co_return co_await client.receivePacketAsync();
+            co_return co_await client.receiveBufferAsync();
         },
         std::move(sink),
         std::move(onStop)
@@ -69,7 +69,7 @@ inline void startServerReceivePump(
     startPacketPump(
         scheduler,
         [&server, guid]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
-            co_return co_await server.receiveFromClientAsync(guid);
+            co_return co_await server.receiveBufferAsync(guid);
         },
         std::move(sink),
         std::move(onStop)

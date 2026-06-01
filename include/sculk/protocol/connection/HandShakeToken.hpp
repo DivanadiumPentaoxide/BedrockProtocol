@@ -1,0 +1,50 @@
+// Copyright © 2026 SculkCatalystMC. All rights reserved.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
+// distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
+
+#pragma once
+#include "sculk/protocol/auth/PemKeyPair.hpp"
+#include "sculk/protocol/utility/Result.hpp"
+#include <format>
+#include <optional>
+#include <string>
+
+namespace sculk::protocol::inline abi_v975 {
+
+class HandShakeToken {
+public:
+    struct Header {
+        std::string alg{};
+        std::string x5u{};
+    };
+
+    struct Payload {
+        std::string salt{};
+    };
+
+public:
+    std::string mRawHeader{};
+    Header      mHeader{};
+    std::string mRawPayload{};
+    Payload     mPayload{};
+    std::string mSignature{};
+
+public:
+    [[nodiscard]] std::string getRemotePublicKey() const { return mHeader.x5u; }
+
+    [[nodiscard]] std::string getSalt() const { return mPayload.salt; }
+
+    [[nodiscard]] Result<> verify() const;
+
+    [[nodiscard]] Result<> sign(const PemKeyPair& localKeyPair);
+
+    [[nodiscard]] std::string toString() const { return std::format("{}.{}.{}", mRawHeader, mRawPayload, mSignature); }
+
+public:
+    [[nodiscard]] static Result<HandShakeToken> fromString(std::string_view rawLoginToken);
+};
+
+} // namespace sculk::protocol::inline abi_v975
