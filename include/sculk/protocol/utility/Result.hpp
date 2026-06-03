@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <expected>
 #include <string_view>
 
@@ -15,7 +16,7 @@
 #include <string>
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
 #define _SCULK_SL_PARAM_DEFAULT , std::source_location location = std::source_location::current()
@@ -80,4 +81,4 @@ makeError(std::string_view error, std::source_location location = std::source_lo
 #define _SCULK_READ(expr)                                                                                              \
     if (auto status = expr; !status) return status
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

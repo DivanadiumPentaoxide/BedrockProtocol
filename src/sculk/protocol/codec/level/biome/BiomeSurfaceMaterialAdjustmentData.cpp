@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeSurfaceMaterialAdjustmentData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeSurfaceMaterialAdjustmentData::write(BinaryStream& stream) const {
     stream.writeArray(mAdjustments, &BiomeElementData::write);
@@ -17,4 +17,4 @@ Result<> BiomeSurfaceMaterialAdjustmentData::read(ReadOnlyBinaryStream& stream) 
     return stream.readArray(mAdjustments, &BiomeElementData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

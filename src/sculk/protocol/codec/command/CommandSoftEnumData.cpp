@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/command/CommandSoftEnumData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void CommandSoftEnumData::write(BinaryStream& stream) const {
     stream.writeString(mName);
@@ -19,4 +19,4 @@ Result<> CommandSoftEnumData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mValues, &ReadOnlyBinaryStream::readString);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

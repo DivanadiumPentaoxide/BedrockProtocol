@@ -9,7 +9,7 @@
 #include "sculk/protocol/codec/inventory/container/ContainerID.hpp"
 #include "sculk/protocol/codec/packet/IPacket.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class ContainerSetDataPacket : public IPacket {
 public:
@@ -29,6 +29,6 @@ public:
     SCULK_PROTOCOL_PACKET_TO_STRING();
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE
 
 SCULK_PROTOCOL_PACKET_FORMATTER(ContainerSetDataPacket)

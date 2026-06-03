@@ -14,7 +14,7 @@
 #include <memory>
 #include <openssl/evp.h>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace {
 
@@ -187,4 +187,4 @@ Identity Identity::fromString(std::string_view str) noexcept {
     return identity;
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

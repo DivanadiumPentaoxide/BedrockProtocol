@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/attribute/RemoveEnvironmentAttributesData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void RemoveEnvironmentAttributesData::write(BinaryStream& stream) const {
     stream.writeString(mAttributeLayerName);
@@ -21,4 +21,4 @@ Result<> RemoveEnvironmentAttributesData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mAttributes, &ReadOnlyBinaryStream::readString);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

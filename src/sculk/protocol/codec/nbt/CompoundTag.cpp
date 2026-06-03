@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/nbt/TagVariant.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void CompoundTag::serialize(BinaryStream& stream) const {
     for (const auto& [key, value] : mValue) {
@@ -54,4 +54,4 @@ void CompoundTag::write(BinaryStream& stream) const {
     return deserialize(stream);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

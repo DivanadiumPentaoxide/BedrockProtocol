@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds ServerPlayerPostMovePositionPacket::getId() const noexcept {
     return MinecraftPacketIds::ServerPlayerPostMovePosition;
@@ -30,4 +30,4 @@ std::string ServerPlayerPostMovePositionPacket::toString() const {
 }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

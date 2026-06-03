@@ -8,7 +8,7 @@
 #include "sculk/protocol/codec/actor/attribute/FloatAttributeData.hpp"
 #include "../../utility/EnumName.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void FloatAttributeData::write(BinaryStream& stream) const {
     stream.writeFloat(mValue);
@@ -24,4 +24,4 @@ Result<> FloatAttributeData::read(ReadOnlyBinaryStream& stream) {
     return stream.readFloat(mConstraintMax);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

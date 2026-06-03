@@ -12,7 +12,7 @@
 #include <optional>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct BiomeCappedSurfaceData {
     std::vector<std::int32_t>    mFloorBlocks{};
@@ -26,4 +26,4 @@ struct BiomeCappedSurfaceData {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

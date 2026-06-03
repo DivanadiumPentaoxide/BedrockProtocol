@@ -12,7 +12,7 @@
 #include "sculk/protocol/codec/nbt/TagType.hpp"
 #include "sculk/protocol/codec/nbt/TagVariant.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds StartGamePacket::getId() const noexcept { return MinecraftPacketIds::StartGame; }
 
@@ -106,4 +106,4 @@ std::string StartGamePacket::toString() const {
 }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

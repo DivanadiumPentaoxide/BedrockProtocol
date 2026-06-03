@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/MetaData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void MetaData::write(BinaryStream& stream) const {
     stream.writeArray(mDataItems, [&](const DataItem& item) {
@@ -51,4 +51,4 @@ Result<> MetaData::read(ReadOnlyBinaryStream& stream) {
     });
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

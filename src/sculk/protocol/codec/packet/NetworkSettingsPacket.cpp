@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds NetworkSettingsPacket::getId() const noexcept { return MinecraftPacketIds::NetworkSettings; }
 
@@ -35,6 +35,7 @@ Result<> NetworkSettingsPacket::read(ReadOnlyBinaryStream& stream) {
 #ifdef SCULK_PROTOCOL_ENABLE_FORMATTING
 std::string NetworkSettingsPacket::toString() const {
     return SCULK_FORMAT_PACKET(
+        SCULK_FORMAT_FIELD(mCompressionThreshold),
         SCULK_FORMAT_FIELD(mCompressionAlgorithm),
         SCULK_FORMAT_FIELD(mClientThrottleEnabled),
         SCULK_FORMAT_FIELD(mClientThrottleThreshold),
@@ -43,4 +44,4 @@ std::string NetworkSettingsPacket::toString() const {
 }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -6,9 +6,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <cstdint>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class InventoryTransactionType : std::uint32_t {
     NormalTransaction                  = 0,
@@ -18,4 +19,4 @@ enum class InventoryTransactionType : std::uint32_t {
     ItemReleaseInventoryTransaction    = 4,
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

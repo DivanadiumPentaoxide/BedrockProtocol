@@ -6,10 +6,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <cstdint>
 #include <utility>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class ClientboundMapItemDataType : std::uint32_t {
     Invalid          = 0,
@@ -29,4 +30,4 @@ operator&(const ClientboundMapItemDataType lhs, const ClientboundMapItemDataType
     return static_cast<ClientboundMapItemDataType>(std::to_underlying(lhs) & std::to_underlying(rhs));
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

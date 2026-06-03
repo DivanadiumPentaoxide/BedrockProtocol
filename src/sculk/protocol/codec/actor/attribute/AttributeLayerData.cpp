@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/attribute/AttributeLayerData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void AttributeLayerData::write(BinaryStream& stream) const {
     stream.writeString(mName);
@@ -23,4 +23,4 @@ Result<> AttributeLayerData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mAttributes, &EnvironmentAttributeData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

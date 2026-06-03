@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/player/SerializedAbilitiesData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void SerializedAbilitiesData::write(BinaryStream& stream) const {
     stream.writeSignedInt64(mPlayerRawId);
@@ -38,4 +38,4 @@ Result<> SerializedAbilitiesData::read(ReadOnlyBinaryStream& stream) {
     return {};
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

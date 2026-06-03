@@ -16,7 +16,7 @@
 #include <chrono>
 #include <limits>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace {
 
@@ -282,9 +282,11 @@ void Session::clearOutboundDirty() noexcept { mOutboundDirty.store(false, std::m
 
 bool Session::isConnected() const noexcept { return mConnected.load(std::memory_order_relaxed); }
 
-RakNet::RakNetGUID Session::guid() const noexcept { return mRemote.rakNetGuid; }
+RakNet::RakNetGUID Session::getGuid() const noexcept { return mRemote.rakNetGuid; }
 
-RakNet::AddressOrGUID Session::remoteEndpoint() const noexcept { return mRemote; }
+RakNet::SystemAddress Session::getSystemAddress() const noexcept { return mRemote.systemAddress; }
+
+RakNet::AddressOrGUID Session::getEndpoint() const noexcept { return mRemote; }
 
 #define SCULK_RAKNET_FLAG(x) static_cast<std::uint32_t>(RakNet::RNSPerSecondMetrics::x)
 
@@ -568,4 +570,4 @@ void Session::notifyOneReceiver() noexcept {
 
 void Session::registerReceiveWaiter(std::coroutine_handle<> handle) noexcept { mReceiveWaiters.enqueue(handle); }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

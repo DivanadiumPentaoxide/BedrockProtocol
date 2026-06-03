@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/container/LegacySetItemSlot.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void LegacySetItemSlot::write(BinaryStream& stream) const {
     stream.writeEnum(mContainerEnum, &BinaryStream::writeByte);
@@ -19,4 +19,4 @@ Result<> LegacySetItemSlot::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mSlots, &ReadOnlyBinaryStream::readByte);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

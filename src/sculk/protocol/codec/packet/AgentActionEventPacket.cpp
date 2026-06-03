@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds AgentActionEventPacket::getId() const noexcept { return MinecraftPacketIds::AgentActionEvent; }
 
@@ -38,4 +38,4 @@ std::string AgentActionEventPacket::toString() const {
 }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

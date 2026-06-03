@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds AvailableActorIdentifiersPacket::getId() const noexcept {
     return MinecraftPacketIds::AvailableActorIdentifiers;
@@ -26,4 +26,4 @@ Result<> AvailableActorIdentifiersPacket::read(ReadOnlyBinaryStream& stream) { r
 std::string AvailableActorIdentifiersPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mTag)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

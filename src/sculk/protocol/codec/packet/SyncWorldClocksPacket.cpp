@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds SyncWorldClocksPacket::getId() const noexcept { return MinecraftPacketIds::SyncWorldClocks; }
 
@@ -58,4 +58,4 @@ Result<> SyncWorldClocksPacket::read(ReadOnlyBinaryStream& stream) {
 std::string SyncWorldClocksPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mData)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

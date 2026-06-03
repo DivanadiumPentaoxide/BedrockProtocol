@@ -8,7 +8,7 @@
 #include "sculk/protocol/codec/command/CommandData.hpp"
 #include "../utility/EnumName.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void CommandData::write(BinaryStream& stream) const {
     stream.writeString(mName);
@@ -30,4 +30,4 @@ Result<> CommandData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mOverloads, &CommandOverloadData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

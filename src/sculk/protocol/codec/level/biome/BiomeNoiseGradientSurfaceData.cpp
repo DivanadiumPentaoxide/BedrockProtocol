@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeNoiseGradientSurfaceData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeNoiseGradientSurfaceData::write(BinaryStream& stream) const {
     stream.writeArray(mNonReplaceableBlocks, &BinaryStream::writeUnsignedInt);
@@ -25,4 +25,4 @@ Result<> BiomeNoiseGradientSurfaceData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mAmplitudes, &ReadOnlyBinaryStream::readFloat);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

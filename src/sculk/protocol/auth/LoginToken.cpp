@@ -10,7 +10,7 @@
 #include "../ssl/RS256.hpp"
 #include <sculk/reflection/jsonc/reflection.hpp>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 #define SCULK_LOGIN_TOKEN_CHECK_HEADER(FIELD)                                                                          \
     if (!mHeader.FIELD.has_value()) {                                                                                  \
@@ -196,6 +196,9 @@ Result<> LoginToken::selfSign(const PemKeyPair& clientKeyPair) {
     mHeader.x5u  = pem_helper::stripPemMarkersAndCompact(clientKeyPair.mPublicKeyPem);
     mPayload.cpk = *mHeader.x5u;
 
+    auto expTime = std::chrono::system_clock::now() + std::chrono::years(1);
+    mPayload.exp = std::chrono::duration_cast<std::chrono::seconds>((expTime).time_since_epoch()).count();
+
     SCULK_LOGIN_TOKEN_CREATE_JSON(header, mHeader);
     SCULK_LOGIN_TOKEN_SERIALIZE(header, alg);
     SCULK_LOGIN_TOKEN_SERIALIZE_OPTIONAL(header, x5u);
@@ -279,4 +282,4 @@ Result<LoginToken> LoginToken::fromString(std::string_view rawLoginToken) {
     };
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

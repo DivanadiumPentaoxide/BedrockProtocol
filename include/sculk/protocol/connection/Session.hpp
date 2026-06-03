@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace coro {
 class Scheduler;
@@ -122,9 +122,11 @@ public:
 
     [[nodiscard]] bool isConnected() const noexcept;
 
-    [[nodiscard]] RakNet::RakNetGUID guid() const noexcept;
+    [[nodiscard]] RakNet::RakNetGUID getGuid() const noexcept;
 
-    [[nodiscard]] RakNet::AddressOrGUID remoteEndpoint() const noexcept;
+    [[nodiscard]] RakNet::SystemAddress getSystemAddress() const noexcept;
+
+    [[nodiscard]] RakNet::AddressOrGUID getEndpoint() const noexcept;
 
     [[nodiscard]] NetworkStatus getNetworkStatus() const noexcept;
 
@@ -152,4 +154,4 @@ private:
     std::atomic_uint64_t mReceivePumpGeneration{0};
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

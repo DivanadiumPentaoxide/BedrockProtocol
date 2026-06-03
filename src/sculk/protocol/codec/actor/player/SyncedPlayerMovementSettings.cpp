@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/player/SyncedPlayerMovementSettings.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void SyncedPlayerMovementSettings::write(BinaryStream& stream) const {
     stream.writeVarInt(mRewindHistorySize);
@@ -19,4 +19,4 @@ Result<> SyncedPlayerMovementSettings::read(ReadOnlyBinaryStream& stream) {
     return stream.readBool(mServerAuthBlockBreaking);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

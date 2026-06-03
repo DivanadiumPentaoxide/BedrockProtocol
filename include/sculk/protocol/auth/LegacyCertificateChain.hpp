@@ -14,7 +14,7 @@
 #include <optional>
 #include <string>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class Certificate {
 public:
@@ -89,4 +89,4 @@ public:
     [[nodiscard]] static Result<LegacyCertificateChain> fromString(std::string_view certificateChainJsonStr);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

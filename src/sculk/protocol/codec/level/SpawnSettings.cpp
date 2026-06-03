@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/SpawnSettings.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void SpawnSettings::write(BinaryStream& stream) const {
     stream.writeSignedShort(mType);
@@ -21,4 +21,4 @@ Result<> SpawnSettings::read(ReadOnlyBinaryStream& stream) {
     return stream.readVarInt(mDimension);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

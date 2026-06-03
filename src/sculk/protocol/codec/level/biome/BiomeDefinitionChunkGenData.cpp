@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeDefinitionChunkGenData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeDefinitionChunkGenData::write(BinaryStream& stream) const {
     stream.writeOptional(mClimate, &BiomeClimateData::write);
@@ -41,4 +41,4 @@ Result<> BiomeDefinitionChunkGenData::read(ReadOnlyBinaryStream& stream) {
     return stream.readOptional(mSubSurfaceBuilderData, &BiomeSurfaceBuilderData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

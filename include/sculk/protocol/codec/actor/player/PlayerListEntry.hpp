@@ -9,7 +9,7 @@
 #include "sculk/protocol/codec/actor/player/SerializedSkin.hpp"
 #include "sculk/protocol/codec/actor/player/UUID.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct PlayerListEntry {
     UUID           mUUID{};
@@ -30,4 +30,4 @@ struct PlayerListEntry {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

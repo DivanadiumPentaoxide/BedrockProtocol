@@ -6,12 +6,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <algorithm>
 #include <array>
 #include <bit>
 #include <type_traits>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
@@ -25,4 +26,4 @@ template <typename T>
     }
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

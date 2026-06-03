@@ -13,7 +13,7 @@
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
 #include <optional>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class LocatorBarAction : std::uint32_t {
     None   = 0,
@@ -74,4 +74,4 @@ struct LocatorBarWaypointPayload {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

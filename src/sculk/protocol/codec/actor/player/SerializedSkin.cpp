@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/player/SerializedSkin.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void SerializedSkin::Animation::write(BinaryStream& stream) const {
     stream.writeUnsignedInt(mWidth);
@@ -145,4 +145,4 @@ Result<> SerializedSkin::read(ReadOnlyBinaryStream& stream) {
     return stream.readBool(mOverridesPlayerAppearance);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

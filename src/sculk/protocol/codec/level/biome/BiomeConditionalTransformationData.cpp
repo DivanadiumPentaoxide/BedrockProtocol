@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeConditionalTransformationData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeConditionalTransformationData::write(BinaryStream& stream) const {
     stream.writeArray(mTransformsInto, &BiomeWeightedData::write);
@@ -21,4 +21,4 @@ Result<> BiomeConditionalTransformationData::read(ReadOnlyBinaryStream& stream) 
     return stream.readUnsignedInt(mMinPassingNeighbors);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

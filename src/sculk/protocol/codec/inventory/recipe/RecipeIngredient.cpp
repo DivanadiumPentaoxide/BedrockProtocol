@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/recipe/RecipeIngredient.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void RecipeIngredient::write(BinaryStream& stream) const {
     stream.writeVariantIndex<std::uint8_t>(mDescriptor, &BinaryStream::writeByte);
@@ -66,4 +66,4 @@ Result<> RecipeIngredient::read(ReadOnlyBinaryStream& stream) {
     return stream.readVarInt(mStackSize);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

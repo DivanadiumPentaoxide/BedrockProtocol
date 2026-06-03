@@ -9,7 +9,7 @@
 #include "InventoryTransactionSource.hpp"
 #include "sculk/protocol/codec/inventory/item/NetworkItemStackDescriptor.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct InventoryTransactionAction {
     InventoryTransactionSource mSource{};
@@ -31,4 +31,4 @@ struct InventoryTransactionActions {
 };
 
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

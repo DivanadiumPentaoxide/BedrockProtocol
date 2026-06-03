@@ -8,7 +8,7 @@
 #include "sculk/protocol/connection/thread/ThreadPool.hpp"
 #include <algorithm>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace thread {
 
@@ -74,4 +74,4 @@ void ThreadPool::workerLoop(std::stop_token stopToken, std::size_t workerIndex) 
 
 } // namespace thread
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

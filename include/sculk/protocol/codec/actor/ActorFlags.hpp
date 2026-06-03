@@ -8,7 +8,7 @@
 #pragma once
 #include <cstddef>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class ActorFlags : int {
     Onfire                        = 0,
@@ -144,4 +144,4 @@ enum class ActorFlags : int {
     Count                         = 130,
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

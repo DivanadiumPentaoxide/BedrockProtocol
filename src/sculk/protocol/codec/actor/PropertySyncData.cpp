@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/PropertySyncData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void PropertySyncData::write(BinaryStream& stream) const {
     stream.writeArray(mIntEntries, [&](const PropertySyncIntEntry& entry) {
@@ -32,4 +32,4 @@ Result<> PropertySyncData::read(ReadOnlyBinaryStream& stream) {
     });
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

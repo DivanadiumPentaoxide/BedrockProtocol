@@ -8,7 +8,7 @@
 #pragma once
 #include "sculk/protocol/codec/actor/player/UUID.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct PackInfoData {
     UUID          mPackId{};
@@ -27,4 +27,4 @@ struct PackInfoData {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

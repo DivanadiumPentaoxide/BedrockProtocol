@@ -10,7 +10,7 @@
 #include "../ssl/RS256.hpp"
 #include <sculk/reflection/jsonc/reflection.hpp>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 #define SCULK_HANDSHAKE_TOKEN_SERIALIZE_OPTION_INIT() static reflection::jsonc::options options{.indent = -1}
 
@@ -122,4 +122,4 @@ Result<HandShakeToken> HandShakeToken::fromString(std::string_view rawLoginToken
     };
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -10,7 +10,7 @@
 #include "sculk/protocol/codec/inventory/transaction/InventoryTransactionAction.hpp"
 #include "sculk/protocol/codec/inventory/transaction/InventoryTransactionData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct PackedItemUseLegacyInventoryTransaction {
     std::int32_t                   mLegacyRequestRawId{};
@@ -23,4 +23,4 @@ struct PackedItemUseLegacyInventoryTransaction {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

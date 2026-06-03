@@ -9,7 +9,7 @@
 #include "sculk/protocol/utility/Result.hpp"
 #include <snappy.h>
 
-namespace sculk::protocol::inline abi_v975::compression::snappy {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::compression::snappy {
 
 std::vector<std::byte> compress(const std::vector<std::byte>& data) {
     if (data.empty()) {
@@ -66,4 +66,4 @@ Result<std::vector<std::byte>> decompress(const std::vector<std::byte>& data) {
     return output;
 }
 
-} // namespace sculk::protocol::inline abi_v975::compression::snappy
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::compression::snappy

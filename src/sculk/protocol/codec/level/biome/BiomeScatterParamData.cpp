@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeScatterParamData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeScatterParamData::write(BinaryStream& stream) const {
     stream.writeArray(mCoordinate, &BiomeCoordinateData::write);
@@ -31,4 +31,4 @@ Result<> BiomeScatterParamData::read(ReadOnlyBinaryStream& stream) {
     return stream.readUnsignedShort(mIterations);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

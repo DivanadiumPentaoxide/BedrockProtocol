@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds SetActorLinkPacket::getId() const noexcept { return MinecraftPacketIds::SetActorLink; }
 
@@ -24,4 +24,4 @@ Result<> SetActorLinkPacket::read(ReadOnlyBinaryStream& stream) { return mLink.r
 std::string SetActorLinkPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mLink)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

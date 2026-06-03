@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 template <typename T>
 struct ValueArrayTag {
@@ -50,4 +50,4 @@ struct ValueArrayTag {
 using ByteArrayTag = ValueArrayTag<std::int8_t>;
 using IntArrayTag  = ValueArrayTag<std::int32_t>;
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

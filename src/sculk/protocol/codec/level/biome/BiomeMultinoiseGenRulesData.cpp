@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeMultinoiseGenRulesData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeMultinoiseGenRulesData::write(BinaryStream& stream) const {
     stream.writeFloat(mTemperature);
@@ -24,4 +24,4 @@ Result<> BiomeMultinoiseGenRulesData::read(ReadOnlyBinaryStream& stream) {
     return stream.readFloat(mWeight);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

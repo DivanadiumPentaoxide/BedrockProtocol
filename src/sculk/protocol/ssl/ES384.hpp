@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975::es384 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::es384 {
 
 constexpr std::size_t Es384ScalarSize = 48;
 constexpr std::size_t Es384JoseSigLen = Es384ScalarSize * 2;
@@ -343,4 +343,4 @@ signES384Signature(std::string_view signingInput, std::string_view privateKeyPem
     return true;
 }
 
-} // namespace sculk::protocol::inline abi_v975::es384
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::es384

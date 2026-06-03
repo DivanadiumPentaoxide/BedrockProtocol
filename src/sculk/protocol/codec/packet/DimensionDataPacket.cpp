@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void DimensionDataPacket::DimensionDefinition::write(BinaryStream& stream) const {
     stream.writeString(mName);
@@ -44,4 +44,4 @@ Result<> DimensionDataPacket::read(ReadOnlyBinaryStream& stream) {
 std::string DimensionDataPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mDefinitionGroup)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

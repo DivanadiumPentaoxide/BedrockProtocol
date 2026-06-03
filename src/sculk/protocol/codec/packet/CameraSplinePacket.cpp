@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds CameraSplinePacket::getId() const noexcept { return MinecraftPacketIds::CameraSpline; }
 
@@ -28,4 +28,4 @@ Result<> CameraSplinePacket::read(ReadOnlyBinaryStream& stream) {
 std::string CameraSplinePacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mCameraDataSplines)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

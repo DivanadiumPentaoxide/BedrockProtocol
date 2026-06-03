@@ -14,7 +14,7 @@
 #include <string>
 #include <variant>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class PrimitiveShapesType : std::uint8_t {
     Line          = 0,
@@ -75,4 +75,4 @@ struct PrimitiveShapes {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

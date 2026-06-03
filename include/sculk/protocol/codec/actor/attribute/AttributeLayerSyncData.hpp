@@ -12,7 +12,7 @@
 #include "sculk/protocol/codec/actor/attribute/UpdateEnvironmentAttributesData.hpp"
 #include <variant>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct AttributeLayerSyncData {
     std::variant<
@@ -27,4 +27,4 @@ struct AttributeLayerSyncData {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

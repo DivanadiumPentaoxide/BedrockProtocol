@@ -12,7 +12,7 @@
 #include <random>
 #include <sculk/reflection/jsonc/reflection.hpp>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 std::optional<std::string_view> AuthenticationKeyManager::getPublicKeyPemByKeyId(const std::string& keyId) const {
     auto it = mPublicKeysPemByKeyId.find(keyId);
@@ -149,4 +149,4 @@ std::future<Result<>> AuthenticationKeyManager::initMojangPublicKeyAsync(std::si
     });
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

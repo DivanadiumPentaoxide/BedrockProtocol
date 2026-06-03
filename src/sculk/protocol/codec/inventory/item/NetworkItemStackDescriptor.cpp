@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/item/NetworkItemStackDescriptor.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void NetworkItemStackDescriptor::write(BinaryStream& stream) const {
     if (mId == 0) {
@@ -67,4 +67,4 @@ void NetworkItemStackDescriptor::writeCereal(BinaryStream& stream) const {
     return stream.readString(mUserData);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

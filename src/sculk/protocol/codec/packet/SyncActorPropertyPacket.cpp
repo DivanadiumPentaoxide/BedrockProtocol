@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds SyncActorPropertyPacket::getId() const noexcept { return MinecraftPacketIds::SyncActorProperty; }
 
@@ -24,4 +24,4 @@ Result<> SyncActorPropertyPacket::read(ReadOnlyBinaryStream& stream) { return mP
 std::string SyncActorPropertyPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mPropertyData)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -13,7 +13,7 @@
 #include "ItemUseOnActorInventoryTransaction.hpp"
 #include <variant>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 using InventoryTransactionData = std::variant<
     InventoryNormalTransaction,
@@ -22,4 +22,4 @@ using InventoryTransactionData = std::variant<
     ItemUseOnActorInventoryTransaction,
     ItemReleaseInventoryTransaction>;
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

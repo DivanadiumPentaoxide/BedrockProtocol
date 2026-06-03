@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct ItemStackRequestSlotInfo {
     FullContainerName mFullContainerName{};
@@ -170,4 +170,4 @@ struct ItemStackRequest {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

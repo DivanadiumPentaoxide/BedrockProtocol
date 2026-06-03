@@ -13,7 +13,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class AuthenticationKeyManager {
     std::unordered_map<std::string, std::string> mPublicKeysPemByKeyId{};
@@ -43,4 +43,4 @@ public:
     std::future<Result<>> initMojangPublicKeyAsync(std::size_t timeoutSeconds);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

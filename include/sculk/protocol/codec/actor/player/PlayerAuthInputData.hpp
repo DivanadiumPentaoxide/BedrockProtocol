@@ -6,9 +6,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
-#include <cstddef>
+#include "sculk/protocol/Version.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class PlayerAuthInputData : int {
     Ascend                          = 0,
@@ -79,4 +79,4 @@ enum class PlayerAuthInputData : int {
     InputNum                        = 65,
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

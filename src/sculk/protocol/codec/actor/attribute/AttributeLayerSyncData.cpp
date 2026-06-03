@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/attribute/AttributeLayerSyncData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void AttributeLayerSyncData::write(BinaryStream& stream) const {
     stream.writeVariantIndex<std::uint32_t>(mData, &BinaryStream::writeUnsignedVarInt);
@@ -19,4 +19,4 @@ Result<> AttributeLayerSyncData::read(ReadOnlyBinaryStream& stream) {
     return std::visit([&](auto& value) { return value.read(stream); }, mData);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

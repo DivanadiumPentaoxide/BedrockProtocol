@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/player/PlayerBlockActions.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void PlayerBlockActionData::write(BinaryStream& stream) const {
     stream.writeEnum(mActionType, &BinaryStream::writeVarInt);
@@ -38,4 +38,4 @@ Result<> PlayerBlockActions::read(ReadOnlyBinaryStream& stream) {
     return {};
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

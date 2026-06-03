@@ -8,7 +8,7 @@
 #include "sculk/protocol/codec/camera/CameraSplineDefinition.hpp"
 #include "../utility/EnumName.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void CameraSplineProgressKeyFrame::write(BinaryStream& stream) const {
     stream.writeFloat(mProgress);
@@ -52,4 +52,4 @@ Result<> CameraSplineDefinition::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mRotationKeyFrames, &CameraSplineRotationKeyFrame::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

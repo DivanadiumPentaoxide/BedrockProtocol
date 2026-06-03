@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds ClientboundDataDrivenUIReloadPacket::getId() const noexcept {
     return MinecraftPacketIds::ClientboundDataDrivenUIReload;
@@ -28,4 +28,4 @@ Result<> ClientboundDataDrivenUIReloadPacket::read(ReadOnlyBinaryStream&) { retu
 std::string ClientboundDataDrivenUIReloadPacket::toString() const { return SCULK_FORMAT_PACKET(); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds RemoveActorPacket::getId() const noexcept { return MinecraftPacketIds::RemoveActor; }
 
@@ -24,4 +24,4 @@ Result<> RemoveActorPacket::read(ReadOnlyBinaryStream& stream) { return stream.r
 std::string RemoveActorPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mActorUniqueId)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

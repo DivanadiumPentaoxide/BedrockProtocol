@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <atomic>
 #include <concepts>
 #include <concurrentqueue.h>
@@ -17,7 +18,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace thread {
 
@@ -103,4 +104,4 @@ private:
 
 } // namespace thread
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

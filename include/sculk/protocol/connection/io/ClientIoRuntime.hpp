@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -14,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class ClientNetworkSystem;
 
@@ -55,4 +56,4 @@ private:
 
 } // namespace io
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

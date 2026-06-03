@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/StructureSettings.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void StructureSettings::write(BinaryStream& stream) const {
     stream.writeString(mPaletteName);
@@ -43,4 +43,4 @@ Result<> StructureSettings::read(ReadOnlyBinaryStream& stream) {
     return mRotationPivot.read(stream);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

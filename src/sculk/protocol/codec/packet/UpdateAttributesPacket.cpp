@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds UpdateAttributesPacket::getId() const noexcept { return MinecraftPacketIds::UpdateAttributes; }
 std::string_view   UpdateAttributesPacket::getName() const noexcept { return "UpdateAttributesPacket"; }
@@ -37,4 +37,4 @@ std::string UpdateAttributesPacket::toString() const {
 }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

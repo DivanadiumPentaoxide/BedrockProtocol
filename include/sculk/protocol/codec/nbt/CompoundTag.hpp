@@ -10,7 +10,7 @@
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
 #include <map>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct TagVariant;
 struct CompoundTag {
@@ -25,4 +25,4 @@ struct CompoundTag {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

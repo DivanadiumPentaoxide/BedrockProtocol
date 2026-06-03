@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/resource/PackInfoData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void PackInfoData::write(BinaryStream& stream) const {
     mPackId.write(stream);
@@ -35,4 +35,4 @@ Result<> PackInfoData::read(ReadOnlyBinaryStream& stream) {
     return stream.readString(mCDNUrl);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

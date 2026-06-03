@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds PlayerVideoCapturePacket::getId() const noexcept { return MinecraftPacketIds::PlayerVideoCapture; }
 
@@ -48,4 +48,4 @@ Result<> PlayerVideoCapturePacket::read(ReadOnlyBinaryStream& stream) {
 std::string PlayerVideoCapturePacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mParams)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

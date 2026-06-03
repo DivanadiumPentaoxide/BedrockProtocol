@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/attribute/AttributeLayerSettings.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void AttributeLayerWeight::write(BinaryStream& stream) const {
     stream.writeVariantIndex<std::uint32_t>(mWeight, &BinaryStream::writeUnsignedVarInt);
@@ -45,4 +45,4 @@ Result<> AttributeLayerSettings::read(ReadOnlyBinaryStream& stream) {
     return stream.readBool(mTransitionsPaused);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

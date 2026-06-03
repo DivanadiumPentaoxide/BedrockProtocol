@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class ClientProperties {
 public:
@@ -209,4 +209,4 @@ public:
     [[nodiscard]] static Result<ClientProperties> fromString(std::string_view rawClientProperties);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/attribute/EnvironmentAttributeData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void EnvironmentAttributeData::write(BinaryStream& stream) const {
     stream.writeString(mAttributeName);
@@ -29,4 +29,4 @@ Result<> EnvironmentAttributeData::read(ReadOnlyBinaryStream& stream) {
     return stream.readEnum(mEasing, &ReadOnlyBinaryStream::readSignedInt);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

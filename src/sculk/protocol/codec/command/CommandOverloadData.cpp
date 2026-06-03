@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/command/CommandOverloadData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void CommandOverloadData::write(BinaryStream& stream) const {
     stream.writeBool(mIsChaining);
@@ -19,4 +19,4 @@ Result<> CommandOverloadData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mParameters, &CommandParameterData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

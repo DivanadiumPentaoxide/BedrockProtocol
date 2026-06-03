@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/attribute/Attribute.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void Attribute::Modifier::write(BinaryStream& stream) const {
     stream.writeString(mId);
@@ -49,4 +49,4 @@ Result<> Attribute::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mModifiers, &Attribute::Modifier::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

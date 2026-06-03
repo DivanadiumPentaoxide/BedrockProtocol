@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/StructureEditorData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void StructureEditorData::write(BinaryStream& stream) const {
     stream.writeString(mStructureName);
@@ -31,4 +31,4 @@ Result<> StructureEditorData::read(ReadOnlyBinaryStream& stream) {
     return stream.readVarInt(mRedstoneSaveMode);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

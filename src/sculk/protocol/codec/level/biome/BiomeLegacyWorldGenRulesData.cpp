@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeLegacyWorldGenRulesData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeLegacyWorldGenRulesData::write(BinaryStream& stream) const {
     stream.writeArray(mLegacyPreHills, &BiomeConditionalTransformationData::write);
@@ -17,4 +17,4 @@ Result<> BiomeLegacyWorldGenRulesData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mLegacyPreHills, &BiomeConditionalTransformationData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

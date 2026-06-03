@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeMountainParamsData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeMountainParamsData::write(BinaryStream& stream) const {
     stream.writeUnsignedInt(mSteepBlock);
@@ -27,4 +27,4 @@ Result<> BiomeMountainParamsData::read(ReadOnlyBinaryStream& stream) {
     return stream.readBool(mTopSlideEnabled);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

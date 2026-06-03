@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <variant>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class IPacket;
 
@@ -254,7 +254,7 @@ template <typename... Args, std::size_t... Is>
 constexpr std::string formatPacketImpl(const IPacket& packet, std::index_sequence<Is...>, Args&&... args) {
     std::string out = std::format("{} {{ ", packet.getName());
     ((out.append(args), (Is != sizeof...(Args) - 1 ? out.append(", ") : out)), ...);
-    out.push_back('}');
+    out.append(" }");
     return out;
 }
 
@@ -275,7 +275,7 @@ constexpr std::string toString(const T& value) {
     detail::forEachFieldWithName(value, [&out](std::string_view name, const auto& field, bool last) {
         append(out, name, field, last);
     });
-    out.push_back('}');
+    out.append(" }");
     return out;
 }
 
@@ -290,4 +290,4 @@ constexpr std::string formatPacket(const IPacket& packet, Args&&... args) {
 
 } // namespace formatter
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

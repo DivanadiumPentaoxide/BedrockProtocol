@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeCappedSurfaceData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeCappedSurfaceData::write(BinaryStream& stream) const {
     stream.writeArray(mFloorBlocks, &BinaryStream::writeSignedInt);
@@ -25,4 +25,4 @@ Result<> BiomeCappedSurfaceData::read(ReadOnlyBinaryStream& stream) {
     return stream.readOptional(mBeachBlock, &ReadOnlyBinaryStream::readUnsignedInt);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

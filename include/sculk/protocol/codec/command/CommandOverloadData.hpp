@@ -8,7 +8,7 @@
 #pragma once
 #include "sculk/protocol/codec/command/CommandParameterData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct CommandOverloadData {
     bool                              mIsChaining{false};
@@ -19,4 +19,4 @@ struct CommandOverloadData {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

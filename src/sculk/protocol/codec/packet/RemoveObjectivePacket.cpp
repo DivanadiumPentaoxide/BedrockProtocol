@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds RemoveObjectivePacket::getId() const noexcept { return MinecraftPacketIds::RemoveObjective; }
 
@@ -24,4 +24,4 @@ Result<> RemoveObjectivePacket::read(ReadOnlyBinaryStream& stream) { return stre
 std::string RemoveObjectivePacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mObjectiveName)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

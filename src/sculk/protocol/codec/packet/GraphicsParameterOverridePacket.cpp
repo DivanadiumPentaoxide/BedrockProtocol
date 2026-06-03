@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds GraphicsParameterOverridePacket::getId() const noexcept {
     return MinecraftPacketIds::GraphicsParameterOverride;
@@ -61,4 +61,4 @@ std::string GraphicsParameterOverridePacket::toString() const {
 }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

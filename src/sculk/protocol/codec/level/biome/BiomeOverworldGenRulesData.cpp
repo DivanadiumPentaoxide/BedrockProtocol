@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeOverworldGenRulesData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeOverworldGenRulesData::write(BinaryStream& stream) const {
     stream.writeArray(mHillsTransformations, &BiomeWeightedData::write);
@@ -28,4 +28,4 @@ Result<> BiomeOverworldGenRulesData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mClimate, &BiomeWeightedTemperatureData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

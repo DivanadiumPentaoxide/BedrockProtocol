@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds ItemStackRequestPacket::getId() const noexcept { return MinecraftPacketIds::ItemStackRequest; }
 
@@ -24,4 +24,4 @@ Result<> ItemStackRequestPacket::read(ReadOnlyBinaryStream& stream) { return mRe
 std::string ItemStackRequestPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mRequest)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

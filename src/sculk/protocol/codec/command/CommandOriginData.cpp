@@ -8,7 +8,7 @@
 #include "sculk/protocol/codec/command/CommandOriginData.hpp"
 #include "../utility/EnumName.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void CommandOriginData::write(BinaryStream& stream) const {
     utils::writeEnumName(stream, mType);
@@ -24,4 +24,4 @@ Result<> CommandOriginData::read(ReadOnlyBinaryStream& stream) {
     return stream.readSignedInt64(mPlayerId);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct Identity {
     std::uint64_t mHighBits{};
@@ -28,4 +28,4 @@ struct Identity {
     [[nodiscard]] static Identity fromString(std::string_view str) noexcept;
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

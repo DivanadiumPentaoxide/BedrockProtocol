@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/ActorLink.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ActorLink::write(BinaryStream& stream) const {
     stream.writeVarInt64(mTargetAUniqueId);
@@ -27,4 +27,4 @@ Result<> ActorLink::read(ReadOnlyBinaryStream& stream) {
     return stream.readFloat(mVehicleAngularVelocity);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/command/CommandConstrainedValueData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void CommandConstrainedValueData::write(BinaryStream& stream) const {
     stream.writeUnsignedInt(mEnumValueSymbol);
@@ -21,4 +21,4 @@ Result<> CommandConstrainedValueData::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mConstraintIndices, &ReadOnlyBinaryStream::readByte);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

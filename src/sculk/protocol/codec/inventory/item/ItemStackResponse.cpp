@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/item/ItemStackResponse.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ItemStackResponseSlotInfo::write(BinaryStream& stream) const {
     stream.writeByte(mRequestedSlot);
@@ -64,4 +64,4 @@ Result<> ItemStackResponse::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mResponses, &ItemStackResponseInfo::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

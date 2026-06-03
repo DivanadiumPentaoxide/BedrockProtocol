@@ -234,7 +234,7 @@
 #include "sculk/protocol/codec/packet/UpdateTradePacket.hpp"
 #include "sculk/protocol/codec/packet/VoxelShapesPacket.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 // clang-format off
 #define CREATE_PACKET_SWITCH(PACKET_ID) switch (PACKET_ID) {
@@ -292,6 +292,11 @@ std::unique_ptr<IPacket> MinecraftPackets::readAndCreatePacketFromStream(ReadOnl
         return nullptr;
     }
     return packet;
+}
+
+std::unique_ptr<IPacket> MinecraftPackets::readAndCreatePacketFromBuffer(std::span<const std::byte> buffer) {
+    auto stream = ReadOnlyBinaryStream{buffer};
+    return readAndCreatePacketFromStream(stream);
 }
 
 std::unique_ptr<IPacket> MinecraftPackets::createPacket(MinecraftPacketIds packetId) {
@@ -546,4 +551,4 @@ std::unique_ptr<IPacket> MinecraftPackets::createPacket(MinecraftPacketIds packe
     CREATE_PACKET_DEFAULT(packetId)
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

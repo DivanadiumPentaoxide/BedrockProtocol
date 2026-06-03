@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/connection/coro/Scheduler.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace coro {
 
@@ -21,4 +21,4 @@ bool Scheduler::schedule(std::coroutine_handle<> handle) noexcept {
 
 } // namespace coro
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

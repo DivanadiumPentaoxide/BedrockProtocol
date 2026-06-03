@@ -9,7 +9,7 @@
 #include "../ssl/ES384.hpp"
 #include "../ssl/RS256.hpp"
 
-namespace sculk::protocol::inline abi_v975::ssl {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::ssl {
 
 Result<PemKeyPair> randomES384KeyPair() {
     PemKeyPair keyPair{};
@@ -27,4 +27,4 @@ Result<PemKeyPair> randomRS256KeyPair() {
     return keyPair;
 }
 
-} // namespace sculk::protocol::inline abi_v975::ssl
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::ssl

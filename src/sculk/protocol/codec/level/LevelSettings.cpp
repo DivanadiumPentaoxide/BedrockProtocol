@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/LevelSettings.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void LevelSettings::write(BinaryStream& stream) const {
     stream.writeUnsignedInt64(mSeed);
@@ -113,4 +113,4 @@ Result<> LevelSettings::read(ReadOnlyBinaryStream& stream) {
     return stream.readBool(mDisablePlayerInteractions);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

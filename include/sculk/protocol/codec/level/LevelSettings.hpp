@@ -14,7 +14,7 @@
 #include "sculk/protocol/codec/level/SpawnSettings.hpp"
 #include "sculk/protocol/codec/level/block/BlockPos.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct LevelSettings {
     std::uint64_t             mSeed{};
@@ -72,4 +72,4 @@ struct LevelSettings {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds PurchaseReceiptPacket::getId() const noexcept { return MinecraftPacketIds::PurchaseReceipt; }
 
@@ -28,4 +28,4 @@ Result<> PurchaseReceiptPacket::read(ReadOnlyBinaryStream& stream) {
 std::string PurchaseReceiptPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mPurchaseProofs)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

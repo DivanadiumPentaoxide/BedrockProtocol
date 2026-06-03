@@ -9,7 +9,7 @@
 #include "sculk/protocol/utility/Result.hpp"
 #include <string>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct PemKeyPair {
     std::string mPublicKeyPem{};
@@ -24,4 +24,4 @@ namespace ssl {
 
 } // namespace ssl
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

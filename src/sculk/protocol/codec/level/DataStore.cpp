@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/DataStore.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void DataStoreUpdate::write(BinaryStream& stream) const {
     stream.writeString(mName);
@@ -79,4 +79,4 @@ void DataStoreRemoval::write(BinaryStream& stream) const { stream.writeString(mN
 
 Result<> DataStoreRemoval::read(ReadOnlyBinaryStream& stream) { return stream.readString(mName); }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

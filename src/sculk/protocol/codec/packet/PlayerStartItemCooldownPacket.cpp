@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds PlayerStartItemCooldownPacket::getId() const noexcept {
     return MinecraftPacketIds::PlayerStartItemCooldown;
@@ -34,4 +34,4 @@ std::string PlayerStartItemCooldownPacket::toString() const {
 }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

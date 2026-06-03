@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/transaction/ItemUseOnActorInventoryTransaction.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ItemUseOnActorInventoryTransaction::write(BinaryStream& stream) const {
     stream.writeUnsignedVarInt64(mRuntimeId);
@@ -27,4 +27,4 @@ Result<> ItemUseOnActorInventoryTransaction::read(ReadOnlyBinaryStream& stream) 
     return mHitPos.read(stream);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

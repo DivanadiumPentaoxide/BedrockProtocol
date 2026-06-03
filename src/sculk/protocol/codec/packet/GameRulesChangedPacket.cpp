@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds GameRulesChangedPacket::getId() const noexcept { return MinecraftPacketIds::GameRulesChanged; }
 
@@ -26,4 +26,4 @@ Result<> GameRulesChangedPacket::read(ReadOnlyBinaryStream& stream) {
 std::string GameRulesChangedPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mGameRules)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

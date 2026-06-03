@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/enchant/EnchantOption.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void Enchant::write(BinaryStream& stream) const {
     stream.writeEnum(mType, &BinaryStream::writeByte);
@@ -47,4 +47,4 @@ Result<> EnchantOption::read(ReadOnlyBinaryStream& stream) {
     return stream.readUnsignedVarInt(mNetId);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

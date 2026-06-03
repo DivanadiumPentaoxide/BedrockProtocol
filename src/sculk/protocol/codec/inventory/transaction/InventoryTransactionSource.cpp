@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/transaction/InventoryTransactionSource.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void InventoryTransactionSource::write(BinaryStream& stream) const {
     stream.writeEnum(mType, &BinaryStream::writeUnsignedVarInt);
@@ -37,4 +37,4 @@ Result<> InventoryTransactionSource::read(ReadOnlyBinaryStream& stream) {
     }
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

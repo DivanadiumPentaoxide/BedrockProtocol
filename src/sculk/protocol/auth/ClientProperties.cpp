@@ -9,7 +9,7 @@
 #include "../ssl/ES384.hpp"
 #include <sculk/reflection/jsonc/reflection.hpp>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace {
 constexpr std::string_view removeLeadingCharacter(std::string_view key) {
@@ -263,4 +263,4 @@ Result<ClientProperties> ClientProperties::fromString(std::string_view rawClient
     };
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

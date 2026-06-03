@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/ServerTelemetryData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ServerTelemetryData::write(BinaryStream& stream) const {
     stream.writeString(mServerId);
@@ -23,4 +23,4 @@ Result<> ServerTelemetryData::read(ReadOnlyBinaryStream& stream) {
     return stream.readString(mOwnerId);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/transaction/ItemReleaseInventoryTransaction.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ItemReleaseInventoryTransaction::write(BinaryStream& stream) const {
     stream.writeEnum(mActionType, &BinaryStream::writeUnsignedVarInt);
@@ -23,4 +23,4 @@ Result<> ItemReleaseInventoryTransaction::read(ReadOnlyBinaryStream& stream) {
     return mFromPos.read(stream);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

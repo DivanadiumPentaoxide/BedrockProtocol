@@ -12,7 +12,7 @@
 #include <optional>
 #include <string>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class HandShakeToken {
 public:
@@ -47,4 +47,4 @@ public:
     [[nodiscard]] static Result<HandShakeToken> fromString(std::string_view rawLoginToken);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

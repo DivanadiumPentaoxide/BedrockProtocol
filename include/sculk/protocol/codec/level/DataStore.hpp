@@ -11,7 +11,7 @@
 #include <string>
 #include <variant>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct DataStoreUpdate {
     std::string                             mName{};
@@ -45,4 +45,4 @@ struct DataStoreRemoval {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

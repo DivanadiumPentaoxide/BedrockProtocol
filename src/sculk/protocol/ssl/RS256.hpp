@@ -21,7 +21,7 @@
 #include <string_view>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975::rs256 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::rs256 {
 
 constexpr std::size_t MinRsaBits = 2048;
 
@@ -323,4 +323,4 @@ signRS256Signature(std::string_view signingInput, std::string_view privateKeyPem
     return true;
 }
 
-} // namespace sculk::protocol::inline abi_v975::rs256
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::rs256

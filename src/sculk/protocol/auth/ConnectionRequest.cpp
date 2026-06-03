@@ -28,7 +28,7 @@ struct serializer<sculk::protocol::AuthenticationType> {
 };
 } // namespace sculk::reflection::jsonc
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
 #define SCULK_CONNECTION_REQUEST_ERROR(STATUS, MESSAGE)                                                                \
@@ -399,4 +399,4 @@ Result<ConnectionRequest> ConnectionRequest::create(
     };
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

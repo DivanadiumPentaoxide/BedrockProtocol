@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class ItemStackNetResult : std::uint8_t {
     Success = 0,
@@ -58,4 +58,4 @@ struct ItemStackResponse {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

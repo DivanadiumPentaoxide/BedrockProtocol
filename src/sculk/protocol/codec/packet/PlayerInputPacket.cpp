@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds PlayerInputPacket::getId() const noexcept { return MinecraftPacketIds::PlayerInput_Deprecated; }
 
@@ -32,4 +32,4 @@ Result<> PlayerInputPacket::read(ReadOnlyBinaryStream& stream) {
 std::string PlayerInputPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mMove)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds AwardAchievementPacket::getId() const noexcept { return MinecraftPacketIds::AwardAchievement; }
 
@@ -28,4 +28,4 @@ Result<> AwardAchievementPacket::read(ReadOnlyBinaryStream& stream) {
 std::string AwardAchievementPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mAchievementId)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

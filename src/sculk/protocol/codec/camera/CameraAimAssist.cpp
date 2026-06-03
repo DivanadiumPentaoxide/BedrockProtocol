@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/camera/CameraAimAssist.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace {
 
@@ -137,4 +137,4 @@ Result<> CameraPresetAimAssistDefinition::read(ReadOnlyBinaryStream& stream) {
     return stream.readOptional(mDistance, &ReadOnlyBinaryStream::readFloat);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/math/Vec2.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void Vec2::write(BinaryStream& stream) const {
     stream.writeFloat(mX);
@@ -19,4 +19,4 @@ Result<> Vec2::read(ReadOnlyBinaryStream& stream) {
     return stream.readFloat(mY);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

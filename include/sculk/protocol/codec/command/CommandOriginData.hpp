@@ -9,7 +9,7 @@
 #include "sculk/protocol/codec/actor/player/UUID.hpp"
 #include "sculk/protocol/codec/command/CommandOriginType.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct CommandOriginData {
     CommandOriginType mType{};
@@ -22,4 +22,4 @@ struct CommandOriginData {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

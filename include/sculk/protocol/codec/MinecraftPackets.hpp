@@ -12,7 +12,7 @@
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
 #include <memory>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class MinecraftPackets {
 public:
@@ -29,9 +29,11 @@ public:
 
     [[nodiscard]] static std::unique_ptr<IPacket> readAndCreatePacketFromStream(ReadOnlyBinaryStream& stream);
 
+    [[nodiscard]] static std::unique_ptr<IPacket> readAndCreatePacketFromBuffer(std::span<const std::byte> buffer);
+
     [[nodiscard]] static Result<PacketHeader> readPacketHeader(ReadOnlyBinaryStream& stream);
 
     static void writePacketHeader(BinaryStream& stream, const PacketHeader& header);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

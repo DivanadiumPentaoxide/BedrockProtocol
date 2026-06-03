@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeSurfaceBuilderData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeSurfaceBuilderData::write(BinaryStream& stream) const {
     stream.writeOptional(mSurfaceMaterials, &BiomeSurfaceMaterialData::write);
@@ -31,4 +31,4 @@ Result<> BiomeSurfaceBuilderData::read(ReadOnlyBinaryStream& stream) {
     return stream.readOptional(mNoiseGradientSurface, &BiomeNoiseGradientSurfaceData::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

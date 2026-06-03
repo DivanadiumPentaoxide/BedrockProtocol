@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/attribute/AttributeData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void AttributeData::write(BinaryStream& stream) const {
     stream.writeVariantIndex<std::uint32_t>(mData, &BinaryStream::writeUnsignedVarInt);
@@ -19,4 +19,4 @@ Result<> AttributeData::read(ReadOnlyBinaryStream& stream) {
     return std::visit([&stream](auto& data) { return data.read(stream); }, mData);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

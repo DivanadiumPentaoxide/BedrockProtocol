@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct RecipeUnlockingRequirement {
     enum class UnlockingContext : std::uint8_t {
@@ -210,4 +210,4 @@ struct MaterialReducerDataEntry {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

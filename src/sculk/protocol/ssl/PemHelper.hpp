@@ -2,7 +2,7 @@
 #include <string>
 #include <string_view>
 
-namespace sculk::protocol::inline abi_v975::pem_helper {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::pem_helper {
 
 [[nodiscard]] inline std::string_view trimPemContent(std::string_view pem) {
     constexpr std::string_view whitespace = " \t\r\n";
@@ -89,4 +89,4 @@ namespace sculk::protocol::inline abi_v975::pem_helper {
     return ownedPem;
 }
 
-} // namespace sculk::protocol::inline abi_v975::pem_helper
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::pem_helper

@@ -6,8 +6,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class LegacyTelemetryEventType : int {
     Achievement                     = 0,
@@ -44,4 +45,4 @@ enum class LegacyTelemetryEventType : int {
     ItemUsedEvent                   = 31,
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

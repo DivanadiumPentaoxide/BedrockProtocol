@@ -14,7 +14,7 @@
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
 #include <optional>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct BiomeSurfaceBuilderData {
     std::optional<BiomeSurfaceMaterialData>      mSurfaceMaterials{};
@@ -31,4 +31,4 @@ struct BiomeSurfaceBuilderData {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

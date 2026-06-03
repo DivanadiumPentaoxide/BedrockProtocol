@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include "sculk/protocol/codec/MinecraftPacketIds.hpp"
 #include "sculk/protocol/utility/BinaryStream.hpp"
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
@@ -18,7 +19,7 @@
 #endif
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class IPacket {
 public:
@@ -52,22 +53,22 @@ public:
     [[nodiscard]] Result<> readWithHeader(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE
 
 #ifdef SCULK_PROTOCOL_ENABLE_FORMATTING
 #define SCULK_PROTOCOL_PACKET_TO_STRING() [[nodiscard]] std::string toString() const override
 #define SCULK_PROTOCOL_PACKET_FORMATTER_IMPL(PACKET_CLASS)                                                             \
     template <>                                                                                                        \
-    struct std::formatter<sculk::protocol::abi_v975::PACKET_CLASS> : std::formatter<std::string> {                     \
-        auto format(const sculk::protocol::abi_v975::PACKET_CLASS& packet, format_context& ctx) const {                \
+    struct std::formatter<sculk::protocol::PACKET_CLASS> : std::formatter<std::string> {                               \
+        auto format(const sculk::protocol::PACKET_CLASS& packet, format_context& ctx) const {                          \
             return std::formatter<std::string>::format(packet.toString(), ctx);                                        \
         }                                                                                                              \
     }
 #ifdef SCULK_PROTOCOL_HAS_FMTLIB
 #define SCULK_PROTOCOL_PACKET_FMT_LIB_FORMATTER_IMPL(PACKET_CLASS)                                                     \
     template <>                                                                                                        \
-    struct fmt::formatter<sculk::protocol::abi_v975::PACKET_CLASS> : fmt::formatter<std::string> {                     \
-        auto format(const sculk::protocol::abi_v975::PACKET_CLASS& packet, fmt::format_context& ctx) const {           \
+    struct fmt::formatter<sculk::protocol::PACKET_CLASS> : fmt::formatter<std::string> {                               \
+        auto format(const sculk::protocol::PACKET_CLASS& packet, fmt::format_context& ctx) const {                     \
             return fmt::formatter<std::string>::format(packet.toString(), ctx);                                        \
         }                                                                                                              \
     }

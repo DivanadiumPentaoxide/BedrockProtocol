@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/transaction/InventoryTransactionAction.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void InventoryTransactionAction::write(BinaryStream& stream) const {
     mSource.write(stream);
@@ -31,4 +31,4 @@ Result<> InventoryTransactionActions::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mActions, &InventoryTransactionAction::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

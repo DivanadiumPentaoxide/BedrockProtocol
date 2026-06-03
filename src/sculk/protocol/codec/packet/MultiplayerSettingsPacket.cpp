@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds MultiplayerSettingsPacket::getId() const noexcept { return MinecraftPacketIds::MultiplayerSettings; }
 
@@ -28,4 +28,4 @@ Result<> MultiplayerSettingsPacket::read(ReadOnlyBinaryStream& stream) {
 std::string MultiplayerSettingsPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mType)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

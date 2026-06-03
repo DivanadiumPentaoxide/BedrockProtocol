@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/ServerConfiguration.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void GatheringsConfigurationJoinInfo::write(BinaryStream& stream) const {
     mExperienceId.write(stream);
@@ -63,4 +63,4 @@ Result<> ServerConfigurationJoinInfo::read(ReadOnlyBinaryStream& stream) {
     return stream.readOptional(mPresenceInfo, &GatheringsConfigurationPresenceInfo::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

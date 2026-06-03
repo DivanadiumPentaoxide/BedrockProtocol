@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/Experiments.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void Experiments::Experiment::write(BinaryStream& stream) const {
     stream.writeString(mName);
@@ -37,4 +37,4 @@ Result<> Experiments::read(ReadOnlyBinaryStream& stream) {
     return stream.readBool(mEverToggled);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

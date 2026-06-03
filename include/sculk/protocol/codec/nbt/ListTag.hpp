@@ -11,7 +11,7 @@
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct TagVariant;
 struct ListTag {
@@ -23,4 +23,4 @@ struct ListTag {
     [[nodiscard]] Result<> deserialize(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

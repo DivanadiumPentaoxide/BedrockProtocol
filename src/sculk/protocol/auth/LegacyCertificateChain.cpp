@@ -9,7 +9,7 @@
 #include "../ssl/ES384.hpp"
 #include "sculk/reflection/jsonc/reflection.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 constexpr std::string_view LEGACY_MOJANG_PUBLIC_KEY_PEM =
     "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAECRXueJeTDqNRRgJi/vlRufByu/2G0i2Ebt6YMar5QX/R0DIIyrJMcUpruK4QveTfJSTp3Shlq4Gk34cD/"
@@ -352,4 +352,4 @@ Result<LegacyCertificateChain> LegacyCertificateChain::fromString(std::string_vi
     return error_utils::makeError("Certificate JSON 'chain' field must contain either 1 or 3 certificates");
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

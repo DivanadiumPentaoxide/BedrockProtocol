@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds ChunkRadiusUpdatedPacket::getId() const noexcept { return MinecraftPacketIds::ChunkRadiusUpdated; }
 
@@ -24,4 +24,4 @@ Result<> ChunkRadiusUpdatedPacket::read(ReadOnlyBinaryStream& stream) { return s
 std::string ChunkRadiusUpdatedPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mChunkRadius)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -6,8 +6,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class MinecraftPacketIds : int {
     KeepAlive                                = 0,
@@ -264,4 +265,4 @@ enum class MinecraftPacketIds : int {
     EndId                                    = 348,
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

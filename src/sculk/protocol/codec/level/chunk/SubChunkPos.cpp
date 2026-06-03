@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/chunk/SubChunkPos.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void SubChunkPos::write(BinaryStream& stream) const {
     stream.writeVarInt(mX);
@@ -21,4 +21,4 @@ Result<> SubChunkPos::read(ReadOnlyBinaryStream& stream) {
     return stream.readVarInt(mZ);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

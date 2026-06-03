@@ -10,11 +10,7 @@
 #include <algorithm>
 #include <chrono>
 
-namespace sculk::protocol {
-
-inline namespace abi_v975 {
-
-namespace io {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::io {
 
 namespace {
 
@@ -196,8 +192,4 @@ void ClientIoRuntime::workerLoop(std::stop_token stopToken, std::size_t workerIn
     }
 }
 
-} // namespace io
-
-} // namespace abi_v975
-
-} // namespace sculk::protocol
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::io

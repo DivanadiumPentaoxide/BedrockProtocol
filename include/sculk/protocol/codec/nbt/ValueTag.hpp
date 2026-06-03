@@ -10,7 +10,7 @@
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
 #include <cstdint>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 template <typename T>
 struct ValueTag {
@@ -70,4 +70,4 @@ using FloatTag  = ValueTag<float>;
 using DoubleTag = ValueTag<double>;
 using StringTag = ValueTag<std::string>;
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

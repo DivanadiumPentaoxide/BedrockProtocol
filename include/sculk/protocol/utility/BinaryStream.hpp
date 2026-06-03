@@ -7,6 +7,7 @@
 
 #pragma once
 #include "SwapEndian.hpp"
+#include "sculk/protocol/Version.hpp"
 #include <bitset>
 #include <cstddef>
 #include <cstdint>
@@ -19,7 +20,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class BinaryStream {
 public:
@@ -232,4 +233,4 @@ public:
     }
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

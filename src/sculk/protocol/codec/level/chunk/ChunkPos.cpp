@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/chunk/ChunkPos.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ChunkPos::write(BinaryStream& stream) const {
     stream.writeVarInt(mX);
@@ -19,4 +19,4 @@ Result<> ChunkPos::read(ReadOnlyBinaryStream& stream) {
     return stream.readVarInt(mZ);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -17,7 +17,8 @@ option(PROTOCOL_ENABLE_CODEC "Enable codec features" ON)
 option(PROTOCOL_ENABLE_AUTHENTICATION "Enable authentication features" ON)
 option(PROTOCOL_ENABLE_CONNECTION "Enable connection features" ON)
 option(PROTOCOL_ENABLE_EXCEPTIONS "Enable C++ exceptions for Protocol target" OFF)
-option(PROTOCOL_ENABLE_FORMATTING "Enable string formatting support for Protocol target" OFF)
+option(PROTOCOL_ENABLE_FORMATTING "Enable string formatting support for Protocol target" ON)
+option(PROTOCOL_BUILD_CONNECTION_EXAMPLES "Build minimal connection examples" ON)
 
 if(PROTOCOL_ENABLE_CONNECTION AND NOT PROTOCOL_ENABLE_CODEC)
     message(FATAL_ERROR
@@ -197,9 +198,11 @@ if(PROTOCOL_ENABLE_CONNECTION)
         GIT_TAG master
     )
     FetchContent_MakeAvailable(RakNet)
+
     if(TARGET RakNetLibStatic)
         target_compile_definitions(RakNetLibStatic PUBLIC RAKNET_SUPPORT_IPV6=1)
     endif()
+
     target_include_directories(Protocol PUBLIC
         $<BUILD_INTERFACE:${RakNet_SOURCE_DIR}/Source>
         $<BUILD_INTERFACE:${concurrentqueue_SOURCE_DIR}>
@@ -295,6 +298,26 @@ install(EXPORT ProtocolTargets
     NAMESPACE Protocol::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Protocol
 )
+
+if(PROTOCOL_ENABLE_CONNECTION AND PROTOCOL_BUILD_CONNECTION_EXAMPLES)
+    add_executable(protocol_minimal_server examples/connection/minimal_server.cpp)
+    add_executable(protocol_minimal_client examples/connection/minimal_client.cpp)
+    add_executable(protocol_minimal_proxy examples/connection/minimal_proxy.cpp)
+
+    target_link_libraries(protocol_minimal_server PRIVATE Protocol::Protocol)
+    target_link_libraries(protocol_minimal_client PRIVATE Protocol::Protocol)
+    target_link_libraries(protocol_minimal_proxy PRIVATE Protocol::Protocol)
+
+    target_compile_features(protocol_minimal_server PRIVATE cxx_std_23)
+    target_compile_features(protocol_minimal_client PRIVATE cxx_std_23)
+    target_compile_features(protocol_minimal_proxy PRIVATE cxx_std_23)
+
+    if(MSVC)
+        target_compile_options(protocol_minimal_server PRIVATE /EHsc)
+        target_compile_options(protocol_minimal_client PRIVATE /EHsc)
+        target_compile_options(protocol_minimal_proxy PRIVATE /EHsc)
+    endif()
+endif()
 
 install(FILES
     ${PROJECT_BINARY_DIR}/ProtocolConfig.cmake

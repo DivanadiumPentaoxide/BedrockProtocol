@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds RefreshEntitlementsPacket::getId() const noexcept { return MinecraftPacketIds::RefreshEntitlements; }
 
@@ -24,4 +24,4 @@ Result<> RefreshEntitlementsPacket::read(ReadOnlyBinaryStream&) { return {}; }
 std::string RefreshEntitlementsPacket::toString() const { return SCULK_FORMAT_PACKET(); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -10,10 +10,10 @@
 #include <cstddef>
 #include <vector>
 
-namespace sculk::protocol::inline abi_v975::compression::snappy {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::compression::snappy {
 
 [[nodiscard]] std::vector<std::byte> compress(const std::vector<std::byte>& data);
 
 [[nodiscard]] Result<std::vector<std::byte>> decompress(const std::vector<std::byte>& data);
 
-} // namespace sculk::protocol::inline abi_v975::compression::snappy
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::compression::snappy

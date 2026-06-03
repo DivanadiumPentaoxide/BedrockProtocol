@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/packet/IPacket.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void IPacket::writeWithHeader(BinaryStream& stream) const {
     writeHeader(stream);
@@ -36,4 +36,4 @@ Result<> IPacket::readHeader(ReadOnlyBinaryStream& stream) {
     return {};
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

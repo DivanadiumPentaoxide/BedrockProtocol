@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/actor/player/LocatorBar.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void LocatorBarWorldPosition::write(BinaryStream& stream) const {
     mPosition.write(stream);
@@ -57,4 +57,4 @@ Result<> LocatorBarWaypointPayload::read(ReadOnlyBinaryStream& stream) {
     return stream.readEnum(mActionFlag, &ReadOnlyBinaryStream::readUnsignedVarInt);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

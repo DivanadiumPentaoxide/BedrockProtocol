@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeMesaSurfaceData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeMesaSurfaceData::write(BinaryStream& stream) const {
     stream.writeUnsignedInt(mClayMaterial);
@@ -23,4 +23,4 @@ Result<> BiomeMesaSurfaceData::read(ReadOnlyBinaryStream& stream) {
     return stream.readBool(mHasForest);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

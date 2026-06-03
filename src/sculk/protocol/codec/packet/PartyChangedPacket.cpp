@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void PartyChangedPacket::PlayerPartyInfo::write(BinaryStream& stream) const {
     stream.writeString(mPartyId);
@@ -38,4 +38,4 @@ Result<> PartyChangedPacket::read(ReadOnlyBinaryStream& stream) {
 std::string PartyChangedPacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mPlayerPartyInfo)); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -6,9 +6,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <cstdint>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class ActorEvent : std::uint8_t {
     None                             = 0,
@@ -74,4 +75,4 @@ enum class ActorEvent : std::uint8_t {
     HurtWithoutReceivingDamage       = 81,
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -10,7 +10,7 @@
 #include "../utility/Format.hpp"
 #endif
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 MinecraftPacketIds ClientboundCloseFormPacket::getId() const noexcept {
     return MinecraftPacketIds::ClientboundCloseForm;
@@ -26,4 +26,4 @@ Result<> ClientboundCloseFormPacket::read(ReadOnlyBinaryStream&) { return {}; }
 std::string ClientboundCloseFormPacket::toString() const { return SCULK_FORMAT_PACKET(); }
 #endif
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

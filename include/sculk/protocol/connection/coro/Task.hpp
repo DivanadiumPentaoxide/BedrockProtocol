@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace coro {
 
@@ -140,4 +140,4 @@ private:
 
 } // namespace coro
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

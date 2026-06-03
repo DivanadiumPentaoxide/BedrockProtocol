@@ -12,7 +12,7 @@
 #include <map>
 #include <optional>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct CameraAimAssistCategoryPriorities {
     std::map<std::string, std::int32_t> mEntities{};
@@ -81,4 +81,4 @@ public:
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

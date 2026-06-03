@@ -8,7 +8,7 @@
 #include "sculk/protocol/codec/nbt/ListTag.hpp"
 #include "sculk/protocol/codec/nbt/TagVariant.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ListTag::serialize(BinaryStream& stream) const {
     stream.writeEnum(mType, &BinaryStream::writeByte);
@@ -30,4 +30,4 @@ Result<> ListTag::deserialize(ReadOnlyBinaryStream& stream) {
     return {};
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

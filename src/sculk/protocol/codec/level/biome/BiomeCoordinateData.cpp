@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeCoordinateData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeCoordinateData::write(BinaryStream& stream) const {
     stream.writeVarInt(mMinValueType);
@@ -29,4 +29,4 @@ Result<> BiomeCoordinateData::read(ReadOnlyBinaryStream& stream) {
     return stream.readEnum(mDistributionType, &ReadOnlyBinaryStream::readVarInt);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

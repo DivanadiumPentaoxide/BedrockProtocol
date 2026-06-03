@@ -188,13 +188,13 @@ std::vector<std::byte> CryptoManager::ctrCrypt(EvpCipherCtxPtr& ctx, std::span<c
 
     int        outLen = 0;
     const bool ok     = EVP_CipherUpdate(
-                            ctx.get(),
-                            reinterpret_cast<std::uint8_t*>(output.data()),
-                            &outLen,
-                            reinterpret_cast<const std::uint8_t*>(bytes.data()),
-                            static_cast<int>(bytes.size())
-                        )
-                     == 1;
+                        ctx.get(),
+                        reinterpret_cast<std::uint8_t*>(output.data()),
+                        &outLen,
+                        reinterpret_cast<const std::uint8_t*>(bytes.data()),
+                        static_cast<int>(bytes.size())
+                    )
+                 == 1;
 
     if (!ok || static_cast<std::size_t>(outLen) != output.size()) {
         return {bytes.begin(), bytes.end()};

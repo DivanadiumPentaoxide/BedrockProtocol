@@ -6,9 +6,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <cstdint>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 enum class CommandPermissionLevel : std::uint8_t {
     Any           = 0,
@@ -19,4 +20,4 @@ enum class CommandPermissionLevel : std::uint8_t {
     Internal      = 5,
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

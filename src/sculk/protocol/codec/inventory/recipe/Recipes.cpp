@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/inventory/recipe/Recipes.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void RecipeUnlockingRequirement::write(BinaryStream& stream) const {
     stream.writeEnum(mUnlockingContext, &BinaryStream::writeByte);
@@ -241,4 +241,4 @@ Result<> MaterialReducerDataEntry::read(ReadOnlyBinaryStream& stream) {
     return stream.readArray(mItems, &ItemInfo::read);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

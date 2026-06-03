@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/block/BlockPos.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BlockPos::write(BinaryStream& stream) const {
     stream.writeVarInt(mX);
@@ -21,4 +21,4 @@ Result<> BlockPos::read(ReadOnlyBinaryStream& stream) {
     return stream.readVarInt(mZ);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -11,7 +11,7 @@
 #include <span>
 #include <string>
 
-namespace sculk::protocol::inline abi_v975::base64url {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::base64url {
 
 namespace detail {
 
@@ -183,4 +183,4 @@ constexpr std::string decode(std::string_view str) noexcept {
     return decode(str);
 }
 
-} // namespace sculk::protocol::inline abi_v975::base64url
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::base64url

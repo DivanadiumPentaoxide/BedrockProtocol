@@ -8,7 +8,7 @@
 #include "sculk/protocol/codec/actor/attribute/ColorAttributeData.hpp"
 #include "../../utility/EnumName.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void ColorAttributeData::write(BinaryStream& stream) const {
     stream.writeString(mValue);
@@ -20,4 +20,4 @@ Result<> ColorAttributeData::read(ReadOnlyBinaryStream& stream) {
     return utils::readEnumName(stream, mOperation);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

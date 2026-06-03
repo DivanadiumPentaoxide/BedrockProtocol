@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/map/MapTrackedActorUniqueId.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void MapTrackedActorUniqueId::write(BinaryStream& stream) const {
     stream.writeEnum(mType, &BinaryStream::writeSignedInt);
@@ -35,4 +35,4 @@ Result<> MapTrackedActorUniqueId::read(ReadOnlyBinaryStream& stream) {
     }
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

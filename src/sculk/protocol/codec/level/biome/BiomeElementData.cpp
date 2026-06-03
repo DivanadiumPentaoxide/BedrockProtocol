@@ -7,7 +7,7 @@
 
 #include "sculk/protocol/codec/level/biome/BiomeElementData.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BiomeElementData::write(BinaryStream& stream) const {
     stream.writeFloat(mNoiseFrequencyScale);
@@ -31,4 +31,4 @@ Result<> BiomeElementData::read(ReadOnlyBinaryStream& stream) {
     return mAdjustedMaterials.read(stream);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

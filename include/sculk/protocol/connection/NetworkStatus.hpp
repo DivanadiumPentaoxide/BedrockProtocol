@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class Session;
 
@@ -135,4 +135,4 @@ private:
     RakNet::RakNetGUID mGuid{};
 };
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

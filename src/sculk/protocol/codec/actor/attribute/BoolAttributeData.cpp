@@ -8,7 +8,7 @@
 #include "sculk/protocol/codec/actor/attribute/BoolAttributeData.hpp"
 #include "../../utility/EnumName.hpp"
 
-namespace sculk::protocol::inline abi_v975 {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void BoolAttributeData::write(BinaryStream& stream) const {
     stream.writeBool(mValue);
@@ -20,4 +20,4 @@ Result<> BoolAttributeData::read(ReadOnlyBinaryStream& stream) {
     return utils::readEnumName(stream, mOperation);
 }
 
-} // namespace sculk::protocol::inline abi_v975
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

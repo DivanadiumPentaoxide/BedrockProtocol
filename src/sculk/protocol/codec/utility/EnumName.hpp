@@ -11,7 +11,7 @@
 #include <magic_enum/magic_enum.hpp>
 #include <type_traits>
 
-namespace sculk::protocol::inline abi_v975::utils {
+namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::utils {
 
 template <typename T>
     requires std::is_enum_v<T>
@@ -62,4 +62,4 @@ constexpr void writeEnumName(BinaryStream& stream, T value) {
     stream.writeString(name);
 }
 
-} // namespace sculk::protocol::inline abi_v975::utils
+} // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::utils
