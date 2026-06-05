@@ -81,6 +81,8 @@ std::string ConnectionRequest::getPlayFabID() const {
     return mClientProperties.mPayload.mPlayFabId;
 }
 
+std::string ConnectionRequest::getClientPublicKey() const { return mClientProperties.mHeader.x5u; }
+
 Result<ConnectionRequest::VerificationStatus> ConnectionRequest::verify(
     const AuthenticationKeyManager& authenticationKeyManager,
     bool                            onlineMode,
@@ -191,10 +193,10 @@ inline void ensureAndFillLegacyChain(ConnectionRequest& request) {
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                          .identity    = "", // Empty identity
-                          .displayName = request.getXboxLiveName(),
-                          .XUID        = "",      // Empty XUID
-                          .sandBoxId   = "RETAIL" // Always "RETAIL"
+                        .identity    = "", // Empty identity
+                        .displayName = request.getXboxLiveName(),
+                        .XUID        = "",      // Empty XUID
+                        .sandBoxId   = "RETAIL" // Always "RETAIL"
                     }
                 }
             }

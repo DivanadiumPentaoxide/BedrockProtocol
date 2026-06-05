@@ -8,12 +8,13 @@
 #pragma once
 #include "sculk/protocol/utility/Result.hpp"
 #include <cstddef>
+#include <span>
 #include <vector>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::compression::snappy {
 
-[[nodiscard]] std::vector<std::byte> compress(const std::vector<std::byte>& data);
+[[nodiscard]] std::vector<std::byte> compress(std::span<const std::byte> data);
 
-[[nodiscard]] Result<std::vector<std::byte>> decompress(const std::vector<std::byte>& data);
+[[nodiscard]] Result<std::vector<std::byte>> decompress(std::span<const std::byte> data);
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::compression::snappy

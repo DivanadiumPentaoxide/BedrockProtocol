@@ -33,42 +33,6 @@ using BignumPtr   = std::unique_ptr<BIGNUM, decltype(&BN_free)>;
 using MdCtxPtr    = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 using PkeyCtxPtr  = std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)>;
 
-[[nodiscard]] inline std::string_view trimPemContent(std::string_view pem) {
-    constexpr std::string_view whitespace = " \t\r\n";
-    auto                       begin      = pem.find_first_not_of(whitespace);
-    if (begin == std::string_view::npos) {
-        return {};
-    }
-    auto end = pem.find_last_not_of(whitespace);
-    return pem.substr(begin, end - begin + 1);
-}
-
-[[nodiscard]] inline std::string_view normalizePemForRead(std::string_view pem, bool isPrivate, std::string& ownedPem) {
-    auto trimmedPem = trimPemContent(pem);
-    if (trimmedPem.empty()) {
-        return {};
-    }
-
-    if (trimmedPem.find("-----BEGIN ") != std::string_view::npos) {
-        return trimmedPem;
-    }
-
-    ownedPem.clear();
-    if (isPrivate) {
-        ownedPem.reserve(trimmedPem.size() + 54);
-        ownedPem.append("-----BEGIN PRIVATE KEY-----\n");
-        ownedPem.append(trimmedPem);
-        ownedPem.append("\n-----END PRIVATE KEY-----\n");
-    } else {
-        ownedPem.reserve(trimmedPem.size() + 52);
-        ownedPem.append("-----BEGIN PUBLIC KEY-----\n");
-        ownedPem.append(trimmedPem);
-        ownedPem.append("\n-----END PUBLIC KEY-----\n");
-    }
-
-    return ownedPem;
-}
-
 [[nodiscard]] inline bool isEs384Key(const EVP_PKEY* key) {
     if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_EC || EVP_PKEY_get_bits(key) != 384) {
         return false;
@@ -146,8 +110,7 @@ using PkeyCtxPtr  = std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)>;
 }
 
 [[nodiscard]] inline PkeyPtr loadPublicKey(std::string_view pem) {
-    std::string      ownedPem{};
-    std::string_view normalizedPem = normalizePemForRead(pem, false, ownedPem);
+    std::string normalizedPem = pem_helper::normalizePemForRead(pem, false);
     if (normalizedPem.empty()) {
         return PkeyPtr(nullptr, EVP_PKEY_free);
     }
@@ -165,8 +128,7 @@ using PkeyCtxPtr  = std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)>;
 }
 
 [[nodiscard]] inline PkeyPtr loadPrivateKey(std::string_view pem) {
-    std::string      ownedPem{};
-    std::string_view normalizedPem = normalizePemForRead(pem, true, ownedPem);
+    std::string normalizedPem = pem_helper::normalizePemForRead(pem, true);
     if (normalizedPem.empty()) {
         return PkeyPtr(nullptr, EVP_PKEY_free);
     }

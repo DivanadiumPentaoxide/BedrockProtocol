@@ -11,7 +11,7 @@
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::compression::snappy {
 
-std::vector<std::byte> compress(const std::vector<std::byte>& data) {
+std::vector<std::byte> compress(std::span<const std::byte> data) {
     if (data.empty()) {
         return {};
     }
@@ -31,7 +31,7 @@ std::vector<std::byte> compress(const std::vector<std::byte>& data) {
     return output;
 }
 
-Result<std::vector<std::byte>> decompress(const std::vector<std::byte>& data) {
+Result<std::vector<std::byte>> decompress(std::span<const std::byte> data) {
     if (data.empty()) {
         return error_utils::makeError("snappy decompress failed: input is empty");
     }

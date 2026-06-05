@@ -193,8 +193,7 @@ jwkRsaPublicKeyToPem(std::string_view modulusEncoded, std::string_view exponentE
 }
 
 [[nodiscard]] inline PkeyPtr loadPublicKey(std::string_view pem) {
-    std::string      ownedPem{};
-    std::string_view normalizedPem = pem_helper::normalizePemForRead(pem, false, ownedPem);
+    std::string normalizedPem = pem_helper::normalizePemForRead(pem, false);
     if (normalizedPem.empty()) {
         return PkeyPtr(nullptr, EVP_PKEY_free);
     }
@@ -212,8 +211,7 @@ jwkRsaPublicKeyToPem(std::string_view modulusEncoded, std::string_view exponentE
 }
 
 [[nodiscard]] inline PkeyPtr loadPrivateKey(std::string_view pem) {
-    std::string      ownedPem{};
-    std::string_view normalizedPem = pem_helper::normalizePemForRead(pem, true, ownedPem);
+    std::string normalizedPem = pem_helper::normalizePemForRead(pem, true);
     if (normalizedPem.empty()) {
         return PkeyPtr(nullptr, EVP_PKEY_free);
     }

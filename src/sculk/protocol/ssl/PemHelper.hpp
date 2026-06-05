@@ -63,17 +63,17 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE::pem_helper {
     return compacted;
 }
 
-[[nodiscard]] inline std::string_view normalizePemForRead(std::string_view pem, bool isPrivate, std::string& ownedPem) {
+[[nodiscard]] inline std::string normalizePemForRead(std::string_view pem, bool isPrivate) {
     auto trimmedPem = trimPemContent(pem);
     if (trimmedPem.empty()) {
         return {};
     }
 
     if (trimmedPem.find("-----BEGIN ") != std::string_view::npos) {
-        return trimmedPem;
+        return std::string(trimmedPem);
     }
 
-    ownedPem.clear();
+    std::string ownedPem{};
     if (isPrivate) {
         ownedPem.reserve(trimmedPem.size() + 54);
         ownedPem.append("-----BEGIN PRIVATE KEY-----\n");

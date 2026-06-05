@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "sculk/protocol/Version.hpp"
 #include <RakNetTypes.h>
 #include <cstddef>
 #include <cstdint>

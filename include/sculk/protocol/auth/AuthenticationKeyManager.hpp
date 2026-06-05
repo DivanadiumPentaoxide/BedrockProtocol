@@ -38,9 +38,9 @@ public:
         return *this;
     }
 
-    Result<> initMojangPublicKeyBlocking(std::size_t timeoutSeconds);
+    Result<> initMojangPublicKeyBlocking(std::size_t timeoutSeconds = 5);
 
-    std::future<Result<>> initMojangPublicKeyAsync(std::size_t timeoutSeconds);
+    std::future<Result<>> initMojangPublicKeyAsync(std::size_t timeoutSeconds = 5);
 };
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

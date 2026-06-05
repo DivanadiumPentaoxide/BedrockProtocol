@@ -6,17 +6,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
-#include "sculk/protocol/codec/packet/IPacket.hpp"
 #include "sculk/protocol/connection/NetworkStatus.hpp"
 #include "sculk/protocol/connection/coro/Task.hpp"
 #include "sculk/protocol/connection/encryption/CryptoManager.hpp"
 #include "sculk/protocol/utility/Result.hpp"
 #include <RakPeerInterface.h>
 #include <atomic>
+#include <chrono>
 #include <concurrentqueue.h>
-#include <coroutine>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <utility>
@@ -24,19 +24,13 @@
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
-namespace coro {
-class Scheduler;
-}
-
-struct OutboundPacket {
-    std::vector<std::byte> mPayload{};
-};
-
-using PacketBuffer      = std::vector<std::byte>;
-using PacketBufferBatch = std::vector<PacketBuffer>;
-using OutboundBatch     = std::vector<OutboundPacket>;
-
 class Session {
+public:
+    using Buffer          = std::vector<std::byte>;
+    using BufferView      = std::span<const std::byte>;
+    using BatchedBuffer   = std::vector<Buffer>;
+    using OutboundBuffers = std::vector<Buffer>;
+
 public:
     enum class CompressionType : std::int8_t {
         None   = -1,
@@ -45,80 +39,55 @@ public:
     };
 
 protected:
-    RakNet::RakPeerInterface*                            mPeer{};
-    RakNet::AddressOrGUID                                mRemote{};
-    coro::Scheduler*                                     mScheduler{};
-    moodycamel::ConcurrentQueue<std::vector<std::byte>>  mInboundPackets{};
-    moodycamel::ConcurrentQueue<OutboundPacket>          mOutboundPackets{};
-    moodycamel::ConcurrentQueue<std::coroutine_handle<>> mReceiveWaiters{};
-    std::atomic_bool                                     mConnected{true};
-    std::atomic_bool                                     mOutboundDirty{false};
-    std::atomic_uint64_t                                 mInboundQueuedBytes{0};
-    std::atomic_uint64_t                                 mOutboundQueuedBytes{0};
-    std::optional<CompressionType>                       mCompressionType{};
-    std::size_t                                          mCompressionThreshold{};
-    std::optional<CryptoManager>                         mEncryption{};
+    RakNet::RakPeerInterface*             mPeer{};
+    RakNet::AddressOrGUID                 mRemote{};
+    moodycamel::ConcurrentQueue<Buffer>   mInboundPackets{};
+    moodycamel::ConcurrentQueue<Buffer>   mOutboundPackets{};
+    std::atomic_bool                      mConnected{};
+    std::optional<CompressionType>        mCompressionType{};
+    std::size_t                           mCompressionThreshold{};
+    std::optional<CryptoManager>          mEncryption{};
+    std::chrono::steady_clock::time_point mNextFlushAt{};
+    mutable std::mutex                    mMutex{};
 
 public:
-    explicit Session(RakNet::RakPeerInterface* peer, RakNet::AddressOrGUID remote, coro::Scheduler* scheduler) noexcept;
+    explicit Session(RakNet::RakPeerInterface* peer, const RakNet::AddressOrGUID& remote) noexcept;
 
     Session(const Session&)            = delete;
     Session& operator=(const Session&) = delete;
     Session(Session&&)                 = delete;
     Session& operator=(Session&&)      = delete;
 
-public:
-    virtual ~Session() = default;
+    ~Session();
 
 public:
-    [[nodiscard]] bool isCompressed() const noexcept { return mCompressionType.has_value(); }
+    [[nodiscard]] bool isCompressed() const noexcept;
 
-    void setCompressionType(CompressionType type) noexcept { mCompressionType = type; }
+    void setCompressionType(CompressionType type) noexcept;
 
-    [[nodiscard]] std::size_t getCompressionThreshold() const noexcept { return mCompressionThreshold; }
+    void setCompressionThreshold(std::size_t threshold) noexcept;
 
-    void setCompressionThreshold(std::size_t threshold) noexcept { mCompressionThreshold = threshold; }
+    [[nodiscard]] bool isEncrypted() const noexcept;
 
-    [[nodiscard]] bool isEncrypted() const noexcept { return mEncryption.has_value(); }
+    void setEncrypted(std::vector<std::byte> key) noexcept;
 
-    void setEncrypted(std::vector<std::byte> key) noexcept { mEncryption.emplace(std::move(key)); }
+    bool sendPacket(Buffer&& Buffer);
 
-    bool sendPacket(const IPacket& packet);
+    bool sendPacket(BufferView Buffer);
 
-    bool sendPacketImmediately(const IPacket& packet);
+    bool sendPacketImmediately(Buffer&& Buffer);
 
-    // Queue-based send. Network I/O thread flushes the queue later.
-    [[nodiscard]] bool sendPacketBuffer(std::span<const std::byte> buffer);
+    bool sendPacketImmediately(BufferView Buffer);
 
-    // Move-friendly queue-based send.
-    [[nodiscard]] bool sendPacketBuffer(std::vector<std::byte>&& buffer);
+    [[nodiscard]] bool flush();
 
-    // Immediate send path for one logical packet. The packet is still wrapped into a batch before transport send.
-    [[nodiscard]] std::uint32_t
-    sendPacketBufferImmediately(std::span<const std::byte> buffer, std::uint32_t forceReceiptNumber = 0);
+    [[nodiscard]] bool flushIfDue(std::chrono::steady_clock::time_point now) noexcept;
 
-    // Low-level immediate send for payloads that are already fully serialized for transport.
-    [[nodiscard]] std::uint32_t sendBatchedPacketBufferImmediately(
-        std::span<const std::byte> buffer,
-        std::uint32_t              forceReceiptNumber = 0
-    ) noexcept;
+    [[nodiscard]] bool receivePacket(Buffer& outBuffer) noexcept;
 
-    // Non-blocking receive. Returns false when queue is empty.
-    [[nodiscard]] bool receivePacketBuffer(std::vector<std::byte>& outBuffer) noexcept;
+    [[nodiscard]] coro::Task<Result<Buffer>> receivePacketAsync();
 
-    // Coroutine receive. Suspends until one packet is available.
-    // Returns error when session is disconnected before new packet arrives.
-    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketBufferAsync();
-
-    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receivePacketBufferAsync(std::uint64_t expectedGeneration);
-
-    [[nodiscard]] bool hasPendingInboundPackets() const noexcept;
-
-    [[nodiscard]] bool hasPendingOutboundPackets() const noexcept;
-
-    [[nodiscard]] bool tryMarkOutboundDirty() noexcept;
-
-    void clearOutboundDirty() noexcept;
+    void disconnect() noexcept;
 
     [[nodiscard]] bool isConnected() const noexcept;
 
@@ -130,28 +99,21 @@ public:
 
     [[nodiscard]] NetworkStatus getNetworkStatus() const noexcept;
 
-    void markDisconnected() noexcept;
+public:
+    [[nodiscard]] bool sendBatchedBufferImmediately(Buffer&& packetsBuffer) noexcept;
 
-    bool enqueueInboundPacket(std::vector<std::byte>&& buffer) noexcept;
+    [[nodiscard]] bool hasPendingInboundPackets() const noexcept;
 
-    bool tryDequeueOutboundPacket(OutboundPacket& outPacket) noexcept;
+    [[nodiscard]] bool hasPendingOutboundPackets() const noexcept;
 
-    std::size_t tryDequeueAllOutboundPackets(OutboundBatch& outPackets) noexcept;
+    [[nodiscard]] bool enqueueInboundPacket(Buffer&& buffer) noexcept;
 
-    [[nodiscard]] PacketBuffer serializeBatchedPackets(const PacketBufferBatch& packets);
+    [[nodiscard]] Buffer serializeBatchedPackets(const BatchedBuffer& packets);
 
-    [[nodiscard]] Result<PacketBufferBatch> deserializeBatchPackets(std::span<const std::byte> batchedBuffer);
-
-    void notifyOneReceiver() noexcept;
-
-    void registerReceiveWaiter(std::coroutine_handle<> handle) noexcept;
-
-    [[nodiscard]] std::uint64_t receivePumpGeneration() const noexcept;
-
-    void cancelReceiveWaiters() noexcept;
+    [[nodiscard]] Result<BatchedBuffer> deserializeBatchPackets(std::span<const std::byte> batchedBuffer);
 
 private:
-    std::atomic_uint64_t mReceivePumpGeneration{0};
+    [[nodiscard]] bool flushUnlocked();
 };
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

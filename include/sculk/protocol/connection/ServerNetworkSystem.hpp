@@ -8,25 +8,18 @@
 #pragma once
 #include "Session.hpp"
 #include "sculk/protocol/codec/packet/IPacket.hpp"
-#include "sculk/protocol/connection/coro/Scheduler.hpp"
 #include "sculk/protocol/connection/thread/ThreadPool.hpp"
 #include <RakPeerInterface.h>
 #include <atomic>
-#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
-#include <new>
-#include <parallel_hashmap/phmap.h>
-#include <queue>
-#include <semaphore>
-#include <span>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <thread>
-#include <type_traits>
-#include <unordered_set>
-#include <utility>
+#include <unordered_map>
 #include <vector>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
@@ -50,38 +43,28 @@ public:
     ~ServerNetworkSystem();
 
 public:
-    // Start listening and spawn I/O loop.
     [[nodiscard]] bool start(std::uint16_t ipv4Port, std::uint32_t maxConnections);
 
     [[nodiscard]] bool start(std::uint16_t ipv4Port, std::uint16_t ipv6Port, std::uint32_t maxConnections);
 
     void setMotd(std::string_view motd);
 
+    void updateAnnouncement() noexcept;
+
     void setMaxConnections(std::uint32_t maxConnections);
 
-    // Stop I/O loop and release all sessions.
     void stop();
 
     [[nodiscard]] bool isRunning() const noexcept;
 
     [[nodiscard]] bool sendPacket(const RakNet::RakNetGUID& guid, const IPacket& packet);
 
-    [[nodiscard]] std::uint32_t sendPacketImmediately(const RakNet::RakNetGUID& guid, const IPacket& packet);
+    [[nodiscard]] bool sendPacketImmediately(const RakNet::RakNetGUID& guid, const IPacket& packet);
 
-    [[nodiscard]] bool sendBuffer(const RakNet::RakNetGUID& guid, std::span<const std::byte> buffer);
+    [[nodiscard]] std::unique_ptr<IPacket> receivePacket(const RakNet::RakNetGUID& guid) noexcept;
 
-    [[nodiscard]] bool sendBuffer(const RakNet::RakNetGUID& guid, std::vector<std::byte>&& buffer);
+    [[nodiscard]] coro::Task<Result<std::unique_ptr<IPacket>>> receivePacketAsync(const RakNet::RakNetGUID& guid);
 
-    [[nodiscard]] std::uint32_t
-    sendBufferImmediately(const RakNet::RakNetGUID& guid, std::span<const std::byte> buffer);
-
-    [[nodiscard]] std::uint32_t sendBufferImmediately(const RakNet::RakNetGUID& guid, std::vector<std::byte>&& buffer);
-
-    [[nodiscard]] bool receiveBuffer(const RakNet::RakNetGUID& guid, std::vector<std::byte>& outBuffer) noexcept;
-
-    [[nodiscard]] coro::Task<Result<std::vector<std::byte>>> receiveBufferAsync(const RakNet::RakNetGUID& guid);
-
-    // Returns false when the target session does not exist.
     [[nodiscard]] bool getClientNetworkStatus(const RakNet::RakNetGUID& guid, NetworkStatus& outStatus) const noexcept;
 
     [[nodiscard]] std::size_t getSessionsCount() const;
@@ -94,77 +77,62 @@ public:
 
     bool setOnPacketReceive(PacketReceiveCallback&& callback);
 
-    [[nodiscard]] std::uint64_t getDroppedEventCallbackCount() const noexcept;
+    void setPacketCallbackTakesOverInbound(bool enabled) noexcept;
+
+    [[nodiscard]] std::shared_ptr<Session> getSession(const RakNet::RakNetGUID& guid) const noexcept;
 
 private:
     struct RakPeerDeleter {
         void operator()(RakNet::RakPeerInterface* peer) const noexcept;
     };
 
-    using SessionPtr = std::shared_ptr<Session>;
-    using SessionMap = phmap::flat_hash_map<std::uint64_t, SessionPtr>;
-
-    struct ImmediateSendRequest {
-        std::uint64_t mGuid{};
-        PacketBuffer  mPayload{};
-        std::uint32_t mForceReceiptNumber{};
+    struct SessionsState {
+        std::unordered_map<std::uint64_t, std::shared_ptr<Session>> mByGuid{};
+        std::vector<std::shared_ptr<Session>>                       mOrdered{};
     };
 
-    struct FlushScheduleEntry {
-        std::uint64_t mGuid{};
-        std::uint64_t mDueTimeNs{};
+    struct CallbacksState {
+        ConnectionEventCallback mOnConnected{};
+        ConnectionEventCallback mOnDisconnected{};
+        ConnectionEventCallback mOnNetworkEvent{};
+        PacketReceiveCallback   mOnPacketReceive{};
     };
 
-    struct FlushScheduleCompare {
-        [[nodiscard]] bool operator()(const FlushScheduleEntry& lhs, const FlushScheduleEntry& rhs) const noexcept {
-            return lhs.mDueTimeNs > rhs.mDueTimeNs;
-        }
-    };
+private:
+    void receiveLoop(std::stop_token stopToken);
 
-    [[nodiscard]] SessionPtr getSession(const RakNet::RakNetGUID& guid) const noexcept;
-
-    void ioLoop(std::stop_token stopToken);
-
-    [[nodiscard]] bool ioTickOnce() noexcept;
+    void flushLoop(std::stop_token stopToken);
 
     void processIncomingPacket(RakNet::Packet* packet);
 
-    void flushOutboundPackets();
+    void upsertSession(std::uint64_t key, std::shared_ptr<Session> session);
 
-    void notifyIoWorker() noexcept;
+    std::shared_ptr<Session> removeSession(std::uint64_t key);
 
-    void startPacketPumpIfNeeded(const RakNet::RakNetGUID& guid, const RakNet::SystemAddress& address);
+    void submitConnectedEvent(const RakNet::RakNetGUID& guid, const RakNet::SystemAddress& address) noexcept;
 
-    void startPacketPumpsForExistingSessions();
+    void submitDisconnectedEvent(const RakNet::RakNetGUID& guid, const RakNet::SystemAddress& address) noexcept;
+
+    void submitPacketEvent(
+        const RakNet::RakNetGUID&    guid,
+        const RakNet::SystemAddress& address,
+        std::unique_ptr<IPacket>&&   packet
+    ) noexcept;
 
 private:
+    std::uint32_t                                             mMaxConnections{};
+    std::uint16_t                                             mIpv4Port{};
+    std::optional<std::uint16_t>                              mIpv6Port{};
+    std::string                                               mMotd{};
     std::unique_ptr<RakNet::RakPeerInterface, RakPeerDeleter> mPeer{};
     std::unique_ptr<thread::ThreadPool>                       mOwnedThreadPool{};
     thread::ThreadPool*                                       mThreadPool{};
-    coro::Scheduler                                           mScheduler;
     std::atomic_bool                                          mRunning{false};
-    std::jthread                                              mIoThread{};
-    std::atomic<std::shared_ptr<const SessionMap>>            mSessionsSnapshot{
-        std::shared_ptr<const SessionMap>{std::make_shared<SessionMap>()}
-    };
-    moodycamel::ConcurrentQueue<ImmediateSendRequest>  mImmediateSends{};
-    moodycamel::ConcurrentQueue<std::uint64_t>         mDirtySessionGuids{};
-    phmap::flat_hash_map<std::uint64_t, std::uint64_t> mScheduledDueTimeByGuid{};
-    std::priority_queue<FlushScheduleEntry, std::vector<FlushScheduleEntry>, FlushScheduleCompare> mFlushSchedule{};
-    std::uint8_t                                          mAdaptiveBudgetLevel{};
-    std::uint8_t                                          mPromoteStreak{};
-    std::uint8_t                                          mDemoteStreak{};
-    std::counting_semaphore<>                             mIoWakeSignal{0};
-    std::atomic_bool                                      mSendWakeRequested{};
-    std::atomic_uint32_t                                  mNextImmediateReceipt{1};
-    std::atomic_uint64_t                                  mDroppedEventCallbacks{};
-    std::atomic<std::shared_ptr<ConnectionEventCallback>> mOnConnectedHandler{};
-    std::atomic<std::shared_ptr<ConnectionEventCallback>> mOnDisconnectedHandler{};
-    std::atomic<std::shared_ptr<ConnectionEventCallback>> mOnNetworkEventHandler{};
-    std::atomic<std::shared_ptr<PacketReceiveCallback>>   mOnPacketReceiveHandler{};
-    std::mutex                                            mPacketPumpMutex{};
-    std::unordered_set<std::uint64_t>                     mActivePacketPumps{};
-    std::uint32_t                                         mMaxConnections{};
+    std::jthread                                              mReceiveThread{};
+    std::jthread                                              mFlushThread{};
+    std::atomic<std::shared_ptr<const SessionsState>>         mSessionsState{};
+    std::atomic<std::shared_ptr<const CallbacksState>>        mCallbacksState{};
+    std::atomic_bool                                          mCallbackTakesOverInbound{true};
 };
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

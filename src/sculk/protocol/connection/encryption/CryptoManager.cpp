@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/connection/encryption/CryptoManager.hpp"
+#include "../../ssl/PemHelper.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -22,23 +23,25 @@
 namespace sculk::protocol::inline abi_v944 {
 
 Result<std::vector<std::byte>>
-CryptoManager::computeEcdhSharedSecret(const std::string& localPrivateKeyPem, const std::string& remotePublicKeyPem) {
+CryptoManager::computeEcdhSharedSecret(std::string_view localPrivateKeyPem, std::string_view remotePublicKeyPem) {
     std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> localKey(nullptr, EVP_PKEY_free);
     std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> peerKey(nullptr, EVP_PKEY_free);
     std::unique_ptr<BIO, decltype(&BIO_free)>           bio(nullptr, BIO_free);
 
-    bio.reset(BIO_new_file(localPrivateKeyPem.c_str(), "r"));
+    std::string normalizedLocalPrivatePem = pem_helper::normalizePemForRead(localPrivateKeyPem, true);
+    bio.reset(BIO_new_mem_buf(normalizedLocalPrivatePem.data(), static_cast<int>(normalizedLocalPrivatePem.size())));
     if (!bio) {
-        return error_utils::makeError("Failed to open local private key file");
+        return error_utils::makeError("Failed to create local private key BIO");
     }
     localKey.reset(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr));
     if (!localKey) {
         return error_utils::makeError("Failed to load local private key");
     }
 
-    bio.reset(BIO_new_file(remotePublicKeyPem.c_str(), "r"));
+    std::string normalizedRemotePublicPem = pem_helper::normalizePemForRead(remotePublicKeyPem, false);
+    bio.reset(BIO_new_mem_buf(normalizedRemotePublicPem.data(), static_cast<int>(normalizedRemotePublicPem.size())));
     if (!bio) {
-        return error_utils::makeError("Failed to open peer public key file");
+        return error_utils::makeError("Failed to create peer public key BIO");
     }
     peerKey.reset(PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr));
     if (!peerKey) {
@@ -188,13 +191,13 @@ std::vector<std::byte> CryptoManager::ctrCrypt(EvpCipherCtxPtr& ctx, std::span<c
 
     int        outLen = 0;
     const bool ok     = EVP_CipherUpdate(
-                        ctx.get(),
-                        reinterpret_cast<std::uint8_t*>(output.data()),
-                        &outLen,
-                        reinterpret_cast<const std::uint8_t*>(bytes.data()),
-                        static_cast<int>(bytes.size())
-                    )
-                 == 1;
+                            ctx.get(),
+                            reinterpret_cast<std::uint8_t*>(output.data()),
+                            &outLen,
+                            reinterpret_cast<const std::uint8_t*>(bytes.data()),
+                            static_cast<int>(bytes.size())
+                        )
+                     == 1;
 
     if (!ok || static_cast<std::size_t>(outLen) != output.size()) {
         return {bytes.begin(), bytes.end()};

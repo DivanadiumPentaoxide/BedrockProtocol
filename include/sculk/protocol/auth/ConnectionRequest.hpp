@@ -42,6 +42,8 @@ public:
 
     [[nodiscard]] std::string getPlayFabID() const;
 
+    [[nodiscard]] std::string getClientPublicKey() const;
+
 public:
     [[nodiscard]] Result<VerificationStatus> verify(
         const AuthenticationKeyManager& authenticationKeyManager,

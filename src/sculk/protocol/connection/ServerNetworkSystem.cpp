@@ -6,265 +6,138 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #include "sculk/protocol/connection/ServerNetworkSystem.hpp"
-#include "coro/PumpAdapters.hpp"
 #include "sculk/protocol/codec/MinecraftPackets.hpp"
 #include <MessageIdentifiers.h>
 #include <RakNetTypes.h>
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <format>
-#include <limits>
 #include <thread>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace {
 
-constexpr auto         RECEIVE_IDLE_SLEEP               = std::chrono::milliseconds(1);
-constexpr auto         SEND_FLUSH_INTERVAL              = std::chrono::milliseconds(20);
-constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID        = 0xFE;
-constexpr std::size_t  MAX_POOLED_PACKET_CAPACITY       = 1U << 20;
-constexpr std::size_t  MAX_POOLED_PACKET_COUNT          = 64;
-constexpr std::size_t  MAX_RETAINED_BATCH_CAPACITY      = 256;
-constexpr std::size_t  MAX_IMMEDIATE_SEND_QUEUE         = 4096;
-constexpr std::size_t  HARD_MAX_SESSIONS_PER_FLUSH_PASS = 2048;
-constexpr auto         HARD_MAX_FLUSH_TIME_BUDGET       = std::chrono::milliseconds(8);
-constexpr std::size_t  ADAPTIVE_BUDGET_LEVELS           = 4;
-constexpr std::size_t  LOW_LOAD_FAST_PATH_MAX_SCHEDULED = 64;
-constexpr std::size_t  LOW_LOAD_SESSION_BUDGET          = 32;
-constexpr auto         LOW_LOAD_TIME_BUDGET             = std::chrono::microseconds(700);
-constexpr std::uint8_t PROMOTE_STREAK_THRESHOLD         = 3;
-constexpr std::uint8_t DEMOTE_STREAK_THRESHOLD          = 8;
+constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID = 0xFE;
+constexpr auto         RECEIVE_TICK_INTERVAL     = std::chrono::milliseconds(1);
+constexpr auto         FLUSH_TICK_INTERVAL       = std::chrono::milliseconds(1);
+constexpr std::size_t  FLUSH_WINDOW_TICKS        = 20;
 
-constexpr std::array<std::size_t, ADAPTIVE_BUDGET_LEVELS> SESSION_BUDGETS_PER_LEVEL{
-    16,
-    64,
-    256,
-    1024,
-};
-
-constexpr std::array<std::chrono::steady_clock::duration, ADAPTIVE_BUDGET_LEVELS> TIME_BUDGETS_PER_LEVEL{
-    std::chrono::microseconds(500),
-    std::chrono::microseconds(1500),
-    std::chrono::microseconds(4000),
-    std::chrono::microseconds(8000),
-};
-
-// Promote aggressively on sustained pressure; demote conservatively to avoid oscillation.
-constexpr std::array<std::size_t, ADAPTIVE_BUDGET_LEVELS> PROMOTE_AT_SCHEDULED{
-    96,
-    256,
-    2048,
-    std::numeric_limits<std::size_t>::max(),
-};
-
-constexpr std::array<std::size_t, ADAPTIVE_BUDGET_LEVELS> DEMOTE_AT_SCHEDULED{
-    0,
-    24,
-    128,
-    1024,
-};
-
-struct PreparedSend {
-    PacketBuffer  mPayload{};
-    std::uint32_t mForceReceiptNumber{};
-};
-
-template <typename T>
-void trimVectorCapacity(std::vector<T>& vec, std::size_t maxCapacity) {
-    if (vec.capacity() <= maxCapacity) {
-        return;
+[[nodiscard]] std::size_t flushBudgetPerTick(std::size_t sessionsCount) noexcept {
+    if (sessionsCount == 0) {
+        return 0;
     }
 
-    std::vector<T> released{};
-    vec.swap(released);
-}
-
-class PacketBufferPool final {
-public:
-    [[nodiscard]] PacketBuffer acquire(std::size_t minCapacity = 0) {
-        PacketBuffer buffer;
-        if (!mPool.try_dequeue(buffer)) {
-            if (minCapacity > 0) {
-                buffer.reserve(minCapacity);
-            }
-            return buffer;
-        }
-
-        mPooledCount.fetch_sub(1, std::memory_order_relaxed);
-        buffer.clear();
-        if (buffer.capacity() < minCapacity) {
-            buffer.reserve(minCapacity);
-        }
-        return buffer;
-    }
-
-    void release(PacketBuffer&& buffer) {
-        if (buffer.capacity() > MAX_POOLED_PACKET_CAPACITY) {
-            return;
-        }
-
-        auto currentCount = mPooledCount.load(std::memory_order_relaxed);
-        while (currentCount < MAX_POOLED_PACKET_COUNT) {
-            if (mPooledCount.compare_exchange_weak(
-                    currentCount,
-                    currentCount + 1,
-                    std::memory_order_acq_rel,
-                    std::memory_order_relaxed
-                )) {
-                buffer.clear();
-                if (mPool.enqueue(std::move(buffer))) {
-                    return;
-                }
-
-                mPooledCount.fetch_sub(1, std::memory_order_relaxed);
-                return;
-            }
-        }
-
-        buffer.clear();
-    }
-
-private:
-    moodycamel::ConcurrentQueue<PacketBuffer> mPool{};
-    std::atomic<std::size_t>                  mPooledCount{0};
-};
-
-PacketBufferPool gPacketBufferPool{};
-
-[[nodiscard]] PacketBuffer prependMinecraftBatchHeader(std::span<const std::byte> payload) {
-    PacketBuffer framed = gPacketBufferPool.acquire(payload.size() + 1);
-    framed.push_back(static_cast<std::byte>(MINECRAFT_BATCH_PACKET_ID));
-    framed.insert(framed.end(), payload.begin(), payload.end());
-    return framed;
-}
-
-void prepareBatchedSendsForSession(const std::shared_ptr<Session>& session, PreparedSend& outPrepared) {
-    outPrepared.mPayload.clear();
-    outPrepared.mForceReceiptNumber = 0;
-    if (!session) {
-        return;
-    }
-
-    thread_local OutboundBatch     outboundBatch;
-    thread_local PacketBufferBatch payloadBatch;
-    outboundBatch.clear();
-    payloadBatch.clear();
-
-    if (session->tryDequeueAllOutboundPackets(outboundBatch) == 0) {
-        trimVectorCapacity(outboundBatch, MAX_RETAINED_BATCH_CAPACITY);
-        trimVectorCapacity(payloadBatch, MAX_RETAINED_BATCH_CAPACITY);
-        return;
-    }
-
-    payloadBatch.reserve(outboundBatch.size());
-
-    for (auto& outbound : outboundBatch) {
-        payloadBatch.push_back(std::move(outbound.mPayload));
-    }
-
-    if (!payloadBatch.empty()) {
-        auto batched = session->serializeBatchedPackets(payloadBatch);
-        if (!batched.empty()) {
-            outPrepared.mPayload = std::move(batched);
-        }
-    }
-
-    trimVectorCapacity(outboundBatch, MAX_RETAINED_BATCH_CAPACITY);
-    trimVectorCapacity(payloadBatch, MAX_RETAINED_BATCH_CAPACITY);
+    return std::max<std::size_t>(1, (sessionsCount + (FLUSH_WINDOW_TICKS - 1)) / FLUSH_WINDOW_TICKS);
 }
 
 } // namespace
 
 ServerNetworkSystem::ServerNetworkSystem(std::size_t workerThreadCount)
-: mPeer(RakNet::RakPeerInterface::GetInstance()),
+: mMotd("Sculk Protocol Library"),
+  mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(std::make_unique<thread::ThreadPool>(workerThreadCount)),
   mThreadPool(mOwnedThreadPool.get()),
-  mScheduler(*mThreadPool) {}
+  mSessionsState(std::make_shared<SessionsState>()),
+  mCallbacksState(std::make_shared<CallbacksState>()) {}
 
 ServerNetworkSystem::ServerNetworkSystem(thread::ThreadPool& threadPool)
-: mPeer(RakNet::RakPeerInterface::GetInstance()),
+: mMotd("Sculk Protocol Library"),
+  mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(nullptr),
   mThreadPool(&threadPool),
-  mScheduler(*mThreadPool) {}
+  mSessionsState(std::make_shared<SessionsState>()),
+  mCallbacksState(std::make_shared<CallbacksState>()) {}
 
 ServerNetworkSystem::~ServerNetworkSystem() { stop(); }
 
 bool ServerNetworkSystem::start(std::uint16_t ipv4Port, std::uint32_t maxConnections) {
     if (mRunning.exchange(true, std::memory_order_acq_rel)) {
-        return true;
+        return false;
     }
 
-    RakNet::SocketDescriptor socketDescriptor{ipv4Port, nullptr};
+    mIpv4Port = ipv4Port;
+    mIpv6Port.reset();
+    mMaxConnections = maxConnections;
+
+    RakNet::SocketDescriptor socketDescriptor{mIpv4Port, nullptr};
     socketDescriptor.socketFamily = AF_INET;
 
-    const auto startupResult = mPeer->Startup(maxConnections, &socketDescriptor, 1);
-    if (startupResult != RakNet::RAKNET_STARTED) {
+    const auto status = mPeer->Startup(mMaxConnections, &socketDescriptor, 1);
+    if (status != RakNet::RAKNET_STARTED) {
         mRunning.store(false, std::memory_order_release);
         return false;
     }
 
-    mPeer->SetMaximumIncomingConnections(static_cast<std::uint16_t>(maxConnections));
-    mIoThread = std::jthread([this](std::stop_token token) { ioLoop(token); });
+    mPeer->SetMaximumIncomingConnections(mMaxConnections);
+    updateAnnouncement();
+
+    mReceiveThread = std::jthread([this](std::stop_token token) { receiveLoop(token); });
+    mFlushThread   = std::jthread([this](std::stop_token token) { flushLoop(token); });
     return true;
 }
 
 bool ServerNetworkSystem::start(std::uint16_t ipv4Port, std::uint16_t ipv6Port, std::uint32_t maxConnections) {
     if (mRunning.exchange(true, std::memory_order_acq_rel)) {
-        return true;
+        return false;
     }
 
-    std::array<RakNet::SocketDescriptor, 2> socketDescriptors{
-        RakNet::SocketDescriptor{ipv4Port, nullptr},
-        RakNet::SocketDescriptor{ipv6Port, nullptr}
-    };
-    socketDescriptors[0].socketFamily = AF_INET;
-    socketDescriptors[1].socketFamily = AF_INET6;
+    mIpv4Port       = ipv4Port;
+    mIpv6Port       = ipv6Port;
+    mMaxConnections = maxConnections;
 
-    const auto startupResult =
-        mPeer->Startup(maxConnections, socketDescriptors.data(), static_cast<unsigned>(socketDescriptors.size()));
-    if (startupResult != RakNet::RAKNET_STARTED) {
+    std::array<RakNet::SocketDescriptor, 2> descriptors{
+        RakNet::SocketDescriptor{mIpv4Port,  nullptr},
+        RakNet::SocketDescriptor{*mIpv6Port, nullptr}
+    };
+    descriptors[0].socketFamily = AF_INET;
+    descriptors[1].socketFamily = AF_INET6;
+
+    auto status = mPeer->Startup(mMaxConnections, descriptors.data(), 2);
+    if (status != RakNet::RAKNET_STARTED) {
         mRunning.store(false, std::memory_order_release);
         return false;
     }
-    mMaxConnections = maxConnections;
 
-    setMotd("test server");
-    mIoThread = std::jthread([this](std::stop_token token) { ioLoop(token); });
+    mPeer->SetMaximumIncomingConnections(mMaxConnections);
+    updateAnnouncement();
+
+    mReceiveThread = std::jthread([this](std::stop_token token) { receiveLoop(token); });
+    mFlushThread   = std::jthread([this](std::stop_token token) { flushLoop(token); });
     return true;
 }
 
-void ServerNetworkSystem::setMotd(std::string_view inputMotd) {
-    std::string motd{};
-    motd.resize(sizeof(std::uint16_t));
+void ServerNetworkSystem::setMotd(std::string_view motd) {
+    mMotd = motd;
+    updateAnnouncement();
+}
 
+void ServerNetworkSystem::updateAnnouncement() noexcept {
     auto message = std::format(
         "MCPE;{0};{1};{2};{3};{4};{5};Sculk Sensor Proxy Server;Survival;1;{6};{7};0;",
-        motd,
-        inputMotd,
-        "26.20",
-        mSessionsSnapshot.load(std::memory_order_acquire)->size(),
+        mMotd,
+        getProtocolVersion(),
+        getMinecraftVersion(),
+        getSessionsCount(),
         mMaxConnections,
         mPeer->GetMyGUID().ToString(),
-        19132,
-        19133
+        mIpv4Port,
+        mIpv6Port.value_or(0)
     );
+    std::uint16_t length = static_cast<std::uint16_t>(message.size());
+    message.insert(0, 2, '\0');
+    message[0] = static_cast<char>((length >> 8) & 0xFF);
+    message[1] = static_cast<char>(length & 0xFF);
 
-    std::uint16_t messageLength = static_cast<std::uint16_t>(message.size());
-
-    messageLength = std::byteswap(messageLength);
-
-    std::memcpy(motd.data(), &messageLength, sizeof(std::uint16_t));
-
-    mPeer->SetOfflinePingResponse(motd.data(), static_cast<std::uint32_t>(motd.size()));
+    mPeer->SetOfflinePingResponse(message.data(), static_cast<unsigned int>(message.size()));
 }
 
 void ServerNetworkSystem::setMaxConnections(std::uint32_t maxConnections) {
     mMaxConnections = maxConnections;
-    mPeer->SetMaximumIncomingConnections(static_cast<std::uint16_t>(mMaxConnections));
+    mPeer->SetMaximumIncomingConnections(mMaxConnections);
+    updateAnnouncement();
 }
 
 void ServerNetworkSystem::stop() {
@@ -272,38 +145,27 @@ void ServerNetworkSystem::stop() {
         return;
     }
 
-    if (mIoThread.joinable()) {
-        mIoThread.request_stop();
-        mIoWakeSignal.release();
-        mIoThread.join();
+    if (mReceiveThread.joinable()) {
+        mReceiveThread.request_stop();
+        mReceiveThread.join();
     }
 
-    auto oldSessions = mSessionsSnapshot.exchange(
-        std::shared_ptr<const SessionMap>{std::make_shared<SessionMap>()},
-        std::memory_order_acq_rel
-    );
-    for (const auto& [_, session] : *oldSessions) {
+    if (mFlushThread.joinable()) {
+        mFlushThread.request_stop();
+        mFlushThread.join();
+    }
+
+    std::shared_ptr<const SessionsState> previousState{};
+    previousState = mSessionsState.exchange(std::make_shared<SessionsState>(), std::memory_order_acq_rel);
+
+    for (const auto& session : previousState->mOrdered) {
         if (session) {
-            session->markDisconnected();
+            session->disconnect();
         }
     }
 
     if (mPeer) {
         mPeer->Shutdown(0);
-    }
-
-    mScheduledDueTimeByGuid.clear();
-    mFlushSchedule       = {};
-    mAdaptiveBudgetLevel = 0;
-    mPromoteStreak       = 0;
-    mDemoteStreak        = 0;
-
-    std::uint64_t dirtyGuid{};
-    while (mDirtySessionGuids.try_dequeue(dirtyGuid)) {}
-
-    {
-        std::scoped_lock lock{mPacketPumpMutex};
-        mActivePacketPumps.clear();
     }
 }
 
@@ -311,125 +173,61 @@ bool ServerNetworkSystem::isRunning() const noexcept { return mRunning.load(std:
 
 bool ServerNetworkSystem::sendPacket(const RakNet::RakNetGUID& guid, const IPacket& packet) {
     auto session = getSession(guid);
-    if (!session || !session->sendPacket(packet)) {
+    if (!session) {
         return false;
     }
 
-    if (session->tryMarkOutboundDirty()) {
-        (void)mDirtySessionGuids.enqueue(guid.g);
-    }
-
-    notifyIoWorker();
-    return true;
-}
-
-std::uint32_t ServerNetworkSystem::sendPacketImmediately(const RakNet::RakNetGUID& guid, const IPacket& packet) {
-    auto session = getSession(guid);
-    if (!session) {
-        return 0;
-    }
-
-    std::vector<std::byte> buffer{};
-    BinaryStream           stream{buffer};
+    Session::Buffer buffer{};
+    BinaryStream    stream{buffer};
     packet.writeWithHeader(stream);
-    if (buffer.empty()) {
-        return 0;
-    }
 
-    return sendBufferImmediately(guid, buffer);
+    return session->sendPacket(std::move(buffer));
 }
 
-bool ServerNetworkSystem::sendBuffer(const RakNet::RakNetGUID& guid, std::span<const std::byte> buffer) {
-    auto session = getSession(guid);
-    if (!session || !session->sendPacketBuffer(buffer)) {
-        return false;
-    }
-
-    if (session->tryMarkOutboundDirty()) {
-        (void)mDirtySessionGuids.enqueue(guid.g);
-    }
-
-    notifyIoWorker();
-    return true;
-}
-
-bool ServerNetworkSystem::sendBuffer(const RakNet::RakNetGUID& guid, std::vector<std::byte>&& buffer) {
-    auto session = getSession(guid);
-    if (!session || !session->sendPacketBuffer(std::move(buffer))) {
-        return false;
-    }
-
-    if (session->tryMarkOutboundDirty()) {
-        (void)mDirtySessionGuids.enqueue(guid.g);
-    }
-
-    notifyIoWorker();
-    return true;
-}
-
-std::uint32_t
-ServerNetworkSystem::sendBufferImmediately(const RakNet::RakNetGUID& guid, std::span<const std::byte> buffer) {
-    auto session = getSession(guid);
-    if (!session || buffer.empty()) {
-        return 0;
-    }
-
-    if (mImmediateSends.size_approx() >= MAX_IMMEDIATE_SEND_QUEUE) {
-        return 0;
-    }
-
-    auto receipt = mNextImmediateReceipt.fetch_add(1, std::memory_order_relaxed);
-    if (receipt == 0) {
-        receipt = mNextImmediateReceipt.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    PacketBuffer payload(buffer.begin(), buffer.end());
-    if (!mImmediateSends.enqueue(ImmediateSendRequest{guid.g, std::move(payload), receipt})) {
-        return 0;
-    }
-
-    notifyIoWorker();
-
-    return receipt;
-}
-
-std::uint32_t
-ServerNetworkSystem::sendBufferImmediately(const RakNet::RakNetGUID& guid, std::vector<std::byte>&& buffer) {
-    auto session = getSession(guid);
-    if (!session || buffer.empty()) {
-        return 0;
-    }
-
-    if (mImmediateSends.size_approx() >= MAX_IMMEDIATE_SEND_QUEUE) {
-        return 0;
-    }
-
-    auto receipt = mNextImmediateReceipt.fetch_add(1, std::memory_order_relaxed);
-    if (receipt == 0) {
-        receipt = mNextImmediateReceipt.fetch_add(1, std::memory_order_relaxed);
-    }
-
-    if (!mImmediateSends.enqueue(ImmediateSendRequest{guid.g, std::move(buffer), receipt})) {
-        return 0;
-    }
-
-    notifyIoWorker();
-
-    return receipt;
-}
-
-bool ServerNetworkSystem::receiveBuffer(const RakNet::RakNetGUID& guid, std::vector<std::byte>& outBuffer) noexcept {
-    auto session = getSession(guid);
-    return session ? session->receivePacketBuffer(outBuffer) : false;
-}
-
-coro::Task<Result<std::vector<std::byte>>> ServerNetworkSystem::receiveBufferAsync(const RakNet::RakNetGUID& guid) {
+bool ServerNetworkSystem::sendPacketImmediately(const RakNet::RakNetGUID& guid, const IPacket& packet) {
     auto session = getSession(guid);
     if (!session) {
-        co_return error_utils::makeError("no active session");
+        return false;
     }
 
-    co_return co_await session->receivePacketBufferAsync();
+    Session::Buffer buffer{};
+    BinaryStream    stream{buffer};
+    packet.writeWithHeader(stream);
+
+    return session->sendPacketImmediately(std::move(buffer));
+}
+
+std::unique_ptr<IPacket> ServerNetworkSystem::receivePacket(const RakNet::RakNetGUID& guid) noexcept {
+    auto session = getSession(guid);
+    if (!session) {
+        return nullptr;
+    }
+
+    Session::Buffer buffer{};
+    if (!session->receivePacket(buffer)) {
+        return nullptr;
+    }
+
+    return MinecraftPackets::readAndCreatePacketFromBuffer(buffer);
+}
+
+coro::Task<Result<std::unique_ptr<IPacket>>> ServerNetworkSystem::receivePacketAsync(const RakNet::RakNetGUID& guid) {
+    auto session = getSession(guid);
+    if (!session) {
+        co_return error_utils::makeError("session not found");
+    }
+
+    auto buffer = co_await session->receivePacketAsync();
+    if (!buffer) {
+        co_return error_utils::makeError("failed to receive packet buffer");
+    }
+
+    auto packet = MinecraftPackets::readAndCreatePacketFromBuffer(*buffer);
+    if (!packet) {
+        co_return error_utils::makeError("failed to decode minecraft packet");
+    }
+
+    co_return std::move(packet);
 }
 
 bool ServerNetworkSystem::getClientNetworkStatus(
@@ -445,229 +243,132 @@ bool ServerNetworkSystem::getClientNetworkStatus(
     return true;
 }
 
-bool ServerNetworkSystem::setOnConnected(ConnectionEventCallback&& callback) noexcept {
-    if (!callback) {
-        mOnConnectedHandler.store(std::shared_ptr<ConnectionEventCallback>{}, std::memory_order_release);
-        return false;
-    }
+std::size_t ServerNetworkSystem::getSessionsCount() const {
+    return mSessionsState.load(std::memory_order_acquire)->mByGuid.size();
+}
 
-    std::shared_ptr<ConnectionEventCallback> hook{new (std::nothrow) ConnectionEventCallback{}};
-    if (!hook) {
-        return false;
+bool ServerNetworkSystem::setOnConnected(ConnectionEventCallback&& callback) noexcept {
+    auto desiredHandler = std::move(callback);
+    auto current        = mCallbacksState.load(std::memory_order_acquire);
+    for (;;) {
+        auto next          = std::make_shared<CallbacksState>(*current);
+        next->mOnConnected = desiredHandler;
+        if (mCallbacksState
+                .compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
+            break;
+        }
     }
-    hook = std::make_shared<ConnectionEventCallback>(std::move(callback));
-    mOnConnectedHandler.store(std::move(hook), std::memory_order_release);
     return true;
 }
 
 bool ServerNetworkSystem::setOnDisconnected(ConnectionEventCallback&& callback) noexcept {
-    if (!callback) {
-        mOnDisconnectedHandler.store(std::shared_ptr<ConnectionEventCallback>{}, std::memory_order_release);
-        return false;
+    auto desiredHandler = std::move(callback);
+    auto current        = mCallbacksState.load(std::memory_order_acquire);
+    for (;;) {
+        auto next             = std::make_shared<CallbacksState>(*current);
+        next->mOnDisconnected = desiredHandler;
+        if (mCallbacksState
+                .compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
+            break;
+        }
     }
-
-    std::shared_ptr<ConnectionEventCallback> hook{new (std::nothrow) ConnectionEventCallback{}};
-    if (!hook) {
-        return false;
-    }
-    hook = std::make_shared<ConnectionEventCallback>(std::move(callback));
-    mOnDisconnectedHandler.store(std::move(hook), std::memory_order_release);
     return true;
 }
 
 bool ServerNetworkSystem::setOnNetworkEvent(ConnectionEventCallback&& callback) noexcept {
-    if (!callback) {
-        mOnNetworkEventHandler.store(std::shared_ptr<ConnectionEventCallback>{}, std::memory_order_release);
-        return false;
+    auto desiredHandler = std::move(callback);
+    auto current        = mCallbacksState.load(std::memory_order_acquire);
+    for (;;) {
+        auto next             = std::make_shared<CallbacksState>(*current);
+        next->mOnNetworkEvent = desiredHandler;
+        if (mCallbacksState
+                .compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
+            break;
+        }
     }
-
-    std::shared_ptr<ConnectionEventCallback> hook{new (std::nothrow) ConnectionEventCallback{}};
-    if (!hook) {
-        return false;
-    }
-    hook = std::make_shared<ConnectionEventCallback>(std::move(callback));
-    mOnNetworkEventHandler.store(std::move(hook), std::memory_order_release);
     return true;
 }
 
 bool ServerNetworkSystem::setOnPacketReceive(PacketReceiveCallback&& callback) {
-    if (!callback) {
-        mOnPacketReceiveHandler.store(std::shared_ptr<PacketReceiveCallback>{}, std::memory_order_release);
-        auto sessions = mSessionsSnapshot.load(std::memory_order_acquire);
-        for (const auto& [_, session] : *sessions) {
-            if (session) {
-                session->cancelReceiveWaiters();
-            }
+    auto desiredHandler = std::move(callback);
+    auto current        = mCallbacksState.load(std::memory_order_acquire);
+    for (;;) {
+        auto next              = std::make_shared<CallbacksState>(*current);
+        next->mOnPacketReceive = desiredHandler;
+        if (mCallbacksState
+                .compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
+            break;
         }
-        return false;
     }
-
-    std::shared_ptr<PacketReceiveCallback> hook{new (std::nothrow) PacketReceiveCallback{}};
-    if (!hook) {
-        return false;
-    }
-
-    *hook = std::move(callback);
-    mOnPacketReceiveHandler.store(std::move(hook), std::memory_order_release);
-
-    startPacketPumpsForExistingSessions();
     return true;
 }
 
-void ServerNetworkSystem::startPacketPumpIfNeeded(
-    const RakNet::RakNetGUID&    guid,
-    const RakNet::SystemAddress& address
-) {
-    auto packetHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
-    if (!packetHook || !*packetHook) {
-        return;
-    }
-
-    auto session = getSession(guid);
-    if (!session || !session->isConnected()) {
-        return;
-    }
-
-    const auto expectedGeneration = session->receivePumpGeneration();
-
-    {
-        std::scoped_lock lock{mPacketPumpMutex};
-        auto [it, inserted] = mActivePacketPumps.insert(guid.g);
-        (void)it;
-        if (!inserted) {
-            return;
-        }
-    }
-
-    coro::startDetached(
-        mScheduler,
-        coro::packetPump(
-            [session, expectedGeneration]() noexcept -> coro::Task<Result<std::vector<std::byte>>> {
-                co_return co_await session->receivePacketBufferAsync(expectedGeneration);
-            },
-            [this, guid, address](std::vector<std::byte>&& buffer) noexcept -> bool {
-                auto currentHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
-                if (!currentHook || !*currentHook) {
-                    auto session = getSession(guid);
-                    if (session) {
-                        (void)session->enqueueInboundPacket(std::move(buffer));
-                    }
-                    return false;
-                }
-
-                auto packet = MinecraftPackets::readAndCreatePacketFromBuffer(buffer);
-                if (!packet) {
-                    return false;
-                }
-
-                (*currentHook)(guid, address, std::move(packet));
-                return true;
-            },
-            [this, guid, address]() noexcept {
-                {
-                    std::scoped_lock lock{mPacketPumpMutex};
-                    mActivePacketPumps.erase(guid.g);
-                }
-
-                auto currentHook = mOnPacketReceiveHandler.load(std::memory_order_acquire);
-                if (!currentHook || !*currentHook) {
-                    return;
-                }
-
-                NetworkStatus status{};
-                if (!getClientNetworkStatus(guid, status) || !status.getConnected()) {
-                    return;
-                }
-
-                startPacketPumpIfNeeded(guid, address);
-            }
-        )
-    );
+void ServerNetworkSystem::setPacketCallbackTakesOverInbound(bool enabled) noexcept {
+    mCallbackTakesOverInbound.store(enabled, std::memory_order_relaxed);
 }
 
-void ServerNetworkSystem::startPacketPumpsForExistingSessions() {
-    auto sessions = mSessionsSnapshot.load(std::memory_order_acquire);
-    for (const auto& [guidValue, session] : *sessions) {
-        if (!session || !session->isConnected()) {
-            continue;
-        }
-
-        startPacketPumpIfNeeded(session->getGuid(), session->getSystemAddress());
-    }
-}
-
-std::uint64_t ServerNetworkSystem::getDroppedEventCallbackCount() const noexcept {
-    return mDroppedEventCallbacks.load(std::memory_order_relaxed);
-}
-
-std::size_t ServerNetworkSystem::getSessionsCount() const {
-    auto sessions = mSessionsSnapshot.load(std::memory_order_acquire);
-    return sessions->size();
-}
-
-ServerNetworkSystem::SessionPtr ServerNetworkSystem::getSession(const RakNet::RakNetGUID& guid) const noexcept {
-    auto sessions = mSessionsSnapshot.load(std::memory_order_acquire);
-    auto it       = sessions->find(guid.g);
-    if (it == sessions->end() || !it->second) {
+std::shared_ptr<Session> ServerNetworkSystem::getSession(const RakNet::RakNetGUID& guid) const noexcept {
+    const auto sessions = mSessionsState.load(std::memory_order_acquire);
+    auto       it       = sessions->mByGuid.find(guid.g);
+    if (it == sessions->mByGuid.end()) {
         return nullptr;
     }
 
     return it->second;
 }
 
-void ServerNetworkSystem::ioLoop(std::stop_token stopToken) {
+void ServerNetworkSystem::receiveLoop(std::stop_token stopToken) {
     while (!stopToken.stop_requested() && mRunning.load(std::memory_order_acquire)) {
-        mSendWakeRequested.store(false, std::memory_order_release);
-        const bool progressed = ioTickOnce();
+        const auto tickBegin = std::chrono::steady_clock::now();
 
-        if (!progressed) {
-            const auto receiveBudget =
-                std::chrono::duration_cast<std::chrono::steady_clock::duration>(RECEIVE_IDLE_SLEEP);
-            auto waitBudget = receiveBudget;
+        while (RakNet::Packet* packet = mPeer->Receive()) {
+            processIncomingPacket(packet);
+            mPeer->DeallocatePacket(packet);
+        }
 
-            const auto nowNs = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                                              std::chrono::steady_clock::now().time_since_epoch()
-            )
-                                                              .count());
-
-            while (!mFlushSchedule.empty()) {
-                const auto top = mFlushSchedule.top();
-                auto       it  = mScheduledDueTimeByGuid.find(top.mGuid);
-                if (it == mScheduledDueTimeByGuid.end() || it->second != top.mDueTimeNs) {
-                    mFlushSchedule.pop();
-                    continue;
-                }
-
-                if (top.mDueTimeNs <= nowNs) {
-                    waitBudget = std::chrono::steady_clock::duration::zero();
-                } else {
-                    const auto untilDue = std::chrono::nanoseconds(top.mDueTimeNs - nowNs);
-                    waitBudget          = std::min(
-                        receiveBudget,
-                        std::chrono::duration_cast<std::chrono::steady_clock::duration>(untilDue)
-                    );
-                }
-                break;
-            }
-
-            if (waitBudget > std::chrono::steady_clock::duration::zero() && !stopToken.stop_requested()) {
-                (void)mIoWakeSignal.try_acquire_for(waitBudget);
-            }
+        const auto nextTick = tickBegin + RECEIVE_TICK_INTERVAL;
+        const auto now      = std::chrono::steady_clock::now();
+        if (now < nextTick) {
+            std::this_thread::sleep_until(nextTick);
         }
     }
 }
 
-bool ServerNetworkSystem::ioTickOnce() noexcept {
-    bool progressed = false;
+void ServerNetworkSystem::flushLoop(std::stop_token stopToken) {
+    std::size_t cursor = 0;
 
-    for (RakNet::Packet* packet = mPeer->Receive(); packet != nullptr; packet = mPeer->Receive()) {
-        progressed = true;
-        processIncomingPacket(packet);
-        mPeer->DeallocatePacket(packet);
+    while (!stopToken.stop_requested() && mRunning.load(std::memory_order_acquire)) {
+        const auto tickBegin = std::chrono::steady_clock::now();
+        const auto now       = std::chrono::steady_clock::now();
+
+        const auto sessions = mSessionsState.load(std::memory_order_acquire);
+        const auto total    = sessions->mOrdered.size();
+        const auto budget   = flushBudgetPerTick(total);
+
+        for (std::size_t i = 0; i < budget; ++i) {
+            if (total == 0) {
+                break;
+            }
+
+            const auto index   = (cursor + i) % total;
+            auto&      session = sessions->mOrdered[index];
+            if (!session || !session->isConnected()) {
+                continue;
+            }
+
+            (void)session->flushIfDue(now);
+        }
+
+        if (total > 0) {
+            cursor = (cursor + budget) % total;
+        }
+
+        const auto nextTick = tickBegin + FLUSH_TICK_INTERVAL;
+        const auto current  = std::chrono::steady_clock::now();
+        if (current < nextTick) {
+            std::this_thread::sleep_until(nextTick);
+        }
     }
-
-    flushOutboundPackets();
-    return progressed;
 }
 
 void ServerNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
@@ -678,89 +379,28 @@ void ServerNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
     const auto messageId = packet->data[0];
     const auto key       = packet->guid.g;
 
-    if (messageId == ToMessageID(ID_UNCONNECTED_PING)) {
+    if (messageId == DefaultMessageIDTypes::ID_UNCONNECTED_PING) {
         return;
     }
 
-    if (messageId == ToMessageID(ID_NEW_INCOMING_CONNECTION)) {
-        auto remote          = RakNet::AddressOrGUID{packet->guid};
-        remote.systemAddress = packet->systemAddress;
-        auto stableSession   = std::make_shared<Session>(mPeer.get(), remote, &mScheduler);
+    if (messageId == DefaultMessageIDTypes::ID_NEW_INCOMING_CONNECTION) {
+        auto remote  = RakNet::AddressOrGUID{packet};
+        auto session = std::make_shared<Session>(mPeer.get(), remote);
+        upsertSession(key, session);
 
-        for (;;) {
-            auto current = mSessionsSnapshot.load(std::memory_order_acquire);
-            auto next    = std::make_shared<SessionMap>(*current);
-            (*next)[key] = stableSession;
-
-            auto desired = std::const_pointer_cast<const SessionMap>(next);
-            if (mSessionsSnapshot
-                    .compare_exchange_weak(current, desired, std::memory_order_release, std::memory_order_acquire)) {
-                break;
-            }
-        }
-
-        auto handler = mOnConnectedHandler.load(std::memory_order_acquire);
-        if (!mThreadPool->submit([handler = std::move(handler),
-                                  guid    = packet->guid,
-                                  address = packet->systemAddress]() mutable noexcept {
-                if (handler && *handler) {
-                    (*handler)(guid, address);
-                }
-            })) {
-            mDroppedEventCallbacks.fetch_add(1, std::memory_order_relaxed);
-        }
-        startPacketPumpIfNeeded(packet->guid, packet->systemAddress);
+        submitConnectedEvent(packet->guid, packet->systemAddress);
         return;
     }
 
-    if (messageId == ToMessageID(ID_DISCONNECTION_NOTIFICATION) || messageId == ToMessageID(ID_CONNECTION_LOST)) {
-        mScheduledDueTimeByGuid.erase(key);
+    if (messageId == DefaultMessageIDTypes::ID_DISCONNECTION_NOTIFICATION
+        || messageId == DefaultMessageIDTypes::ID_CONNECTION_LOST) {
 
-        SessionPtr removedSession;
-        bool       removed = false;
-        for (;;) {
-            auto current = mSessionsSnapshot.load(std::memory_order_acquire);
-            auto it      = current->find(key);
-            if (it == current->end()) {
-                break;
-            }
-
-            auto next = std::make_shared<SessionMap>(*current);
-            auto jt   = next->find(key);
-            if (jt != next->end()) {
-                removedSession = jt->second;
-                next->erase(jt);
-            }
-
-            auto desired = std::const_pointer_cast<const SessionMap>(next);
-            if (mSessionsSnapshot
-                    .compare_exchange_weak(current, desired, std::memory_order_release, std::memory_order_acquire)) {
-                removed = static_cast<bool>(removedSession);
-                break;
-            }
-        }
-
-        if (removedSession) {
-            removedSession->markDisconnected();
-        }
-
+        auto removed = removeSession(key);
         if (removed) {
-            auto handler = mOnDisconnectedHandler.load(std::memory_order_acquire);
-            if (!mThreadPool->submit([handler = std::move(handler),
-                                      guid    = packet->guid,
-                                      address = packet->systemAddress]() mutable noexcept {
-                    if (handler && *handler) {
-                        (*handler)(guid, address);
-                    }
-                })) {
-                mDroppedEventCallbacks.fetch_add(1, std::memory_order_relaxed);
-            }
+            removed->disconnect();
         }
 
-        {
-            std::scoped_lock lock{mPacketPumpMutex};
-            mActivePacketPumps.erase(packet->guid.g);
-        }
+        submitDisconnectedEvent(packet->guid, packet->systemAddress);
         return;
     }
 
@@ -768,178 +408,138 @@ void ServerNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
         return;
     }
 
-    auto       sessions = mSessionsSnapshot.load(std::memory_order_acquire);
-    auto       it       = sessions->find(key);
-    SessionPtr session  = (it != sessions->end()) ? it->second : nullptr;
-
+    auto session = getSession(packet->guid);
     if (!session) {
         return;
     }
 
     const auto* payloadBegin = reinterpret_cast<const std::byte*>(packet->data + 1);
     const auto  payloadSize  = static_cast<std::size_t>(packet->length - 1);
-    auto        packets      = session->deserializeBatchPackets(std::span<const std::byte>{payloadBegin, payloadSize});
+
+    auto packets = session->deserializeBatchPackets(std::span<const std::byte>{payloadBegin, payloadSize});
     if (!packets) {
         return;
     }
 
+    const auto callbacks        = mCallbacksState.load(std::memory_order_acquire);
+    const bool hasCallback      = static_cast<bool>(callbacks->mOnPacketReceive);
+    const bool callbackTakeover = mCallbackTakesOverInbound.load(std::memory_order_relaxed);
+
     for (auto& payload : *packets) {
+        if (hasCallback) {
+            auto packetObj = MinecraftPackets::readAndCreatePacketFromBuffer(payload);
+            if (packetObj) {
+                submitPacketEvent(packet->guid, packet->systemAddress, std::move(packetObj));
+            }
+
+            if (callbackTakeover) {
+                continue;
+            }
+        }
+
         (void)session->enqueueInboundPacket(std::move(payload));
     }
 }
 
-void ServerNetworkSystem::flushOutboundPackets() {
-    const auto flushStart = std::chrono::steady_clock::now();
-    const auto nowNs      = static_cast<std::uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
-            .count()
-    );
-    const auto sendIntervalNs =
-        static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(SEND_FLUSH_INTERVAL).count());
-
-    auto scheduleGuid = [this](std::uint64_t guid, std::uint64_t dueTimeNs) {
-        auto [it, inserted] = mScheduledDueTimeByGuid.insert_or_assign(guid, dueTimeNs);
-        (void)it;
-        (void)inserted;
-        mFlushSchedule.push(FlushScheduleEntry{guid, dueTimeNs});
-    };
-
-    auto sessionsSnapshot = mSessionsSnapshot.load(std::memory_order_acquire);
-
-    ImmediateSendRequest immediate;
-    while (mImmediateSends.try_dequeue(immediate)) {
-        auto it = sessionsSnapshot->find(immediate.mGuid);
-        if (it != sessionsSnapshot->end() && it->second && it->second->isConnected()) {
-            (void)it->second->sendPacketBufferImmediately(immediate.mPayload, immediate.mForceReceiptNumber);
-        }
-    }
-
-    std::uint64_t dirtyGuid{};
-    while (mDirtySessionGuids.try_dequeue(dirtyGuid)) {
-        const auto guidValue = dirtyGuid;
-        if (mScheduledDueTimeByGuid.contains(guidValue)) {
-            continue;
+void ServerNetworkSystem::upsertSession(std::uint64_t key, std::shared_ptr<Session> session) {
+    auto current = mSessionsState.load(std::memory_order_acquire);
+    for (;;) {
+        auto next = std::make_shared<SessionsState>(*current);
+        next->mByGuid.insert_or_assign(key, session);
+        next->mOrdered.clear();
+        next->mOrdered.reserve(next->mByGuid.size());
+        for (auto& [_, currentSession] : next->mByGuid) {
+            next->mOrdered.push_back(currentSession);
         }
 
-        scheduleGuid(guidValue, nowNs);
-    }
-
-    const auto scheduledCount = mScheduledDueTimeByGuid.size();
-
-    std::size_t                         maxSessionsThisPass{};
-    std::chrono::steady_clock::duration maxFlushTimeThisPass{};
-
-    if (scheduledCount <= LOW_LOAD_FAST_PATH_MAX_SCHEDULED) {
-        // Keep low-load path branch-light and stable for the common 3-50 session range.
-        mAdaptiveBudgetLevel = 0;
-        mPromoteStreak       = 0;
-        mDemoteStreak        = 0;
-
-        maxSessionsThisPass  = std::min(LOW_LOAD_SESSION_BUDGET, HARD_MAX_SESSIONS_PER_FLUSH_PASS);
-        maxFlushTimeThisPass = std::min(
-            std::chrono::duration_cast<std::chrono::steady_clock::duration>(LOW_LOAD_TIME_BUDGET),
-            std::chrono::duration_cast<std::chrono::steady_clock::duration>(HARD_MAX_FLUSH_TIME_BUDGET)
-        );
-    } else {
-        const auto currentLevel = static_cast<std::size_t>(mAdaptiveBudgetLevel);
-
-        if (currentLevel + 1 < ADAPTIVE_BUDGET_LEVELS && scheduledCount >= PROMOTE_AT_SCHEDULED[currentLevel]) {
-            ++mPromoteStreak;
-            mDemoteStreak = 0;
-            if (mPromoteStreak >= PROMOTE_STREAK_THRESHOLD) {
-                ++mAdaptiveBudgetLevel;
-                mPromoteStreak = 0;
-            }
-        } else if (currentLevel > 0 && scheduledCount <= DEMOTE_AT_SCHEDULED[currentLevel]) {
-            ++mDemoteStreak;
-            mPromoteStreak = 0;
-            if (mDemoteStreak >= DEMOTE_STREAK_THRESHOLD) {
-                --mAdaptiveBudgetLevel;
-                mDemoteStreak = 0;
-            }
-        } else {
-            mPromoteStreak = 0;
-            mDemoteStreak  = 0;
-        }
-
-        const auto adaptiveLevel = static_cast<std::size_t>(mAdaptiveBudgetLevel);
-        maxSessionsThisPass      = std::min(SESSION_BUDGETS_PER_LEVEL[adaptiveLevel], HARD_MAX_SESSIONS_PER_FLUSH_PASS);
-        maxFlushTimeThisPass     = std::min(
-            TIME_BUDGETS_PER_LEVEL[adaptiveLevel],
-            std::chrono::duration_cast<std::chrono::steady_clock::duration>(HARD_MAX_FLUSH_TIME_BUDGET)
-        );
-    }
-
-    std::size_t processed = 0;
-    while (processed < maxSessionsThisPass && (std::chrono::steady_clock::now() - flushStart) < maxFlushTimeThisPass) {
-        bool madeProgress = false;
-        while (!mFlushSchedule.empty()) {
-            const auto top = mFlushSchedule.top();
-            auto       it  = mScheduledDueTimeByGuid.find(top.mGuid);
-            if (it == mScheduledDueTimeByGuid.end() || it->second != top.mDueTimeNs) {
-                mFlushSchedule.pop();
-                continue;
-            }
-
-            const auto loopNowNs = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                                                  std::chrono::steady_clock::now().time_since_epoch()
-            )
-                                                                  .count());
-            if (top.mDueTimeNs > loopNowNs) {
-                return;
-            }
-
-            mFlushSchedule.pop();
-            mScheduledDueTimeByGuid.erase(it);
-
-            auto sessionIt = sessionsSnapshot->find(top.mGuid);
-            if (sessionIt == sessionsSnapshot->end() || !sessionIt->second) {
-                madeProgress = true;
-                break;
-            }
-
-            auto session = sessionIt->second;
-            if (!session->isConnected()) {
-                madeProgress = true;
-                break;
-            }
-
-            session->clearOutboundDirty();
-
-            PreparedSend prepared{};
-            prepareBatchedSendsForSession(session, prepared);
-            if (!prepared.mPayload.empty()) {
-                auto framed = prependMinecraftBatchHeader(prepared.mPayload);
-                (void)session->sendBatchedPacketBufferImmediately(framed, prepared.mForceReceiptNumber);
-                gPacketBufferPool.release(std::move(framed));
-            }
-
-            if (session->hasPendingOutboundPackets()) {
-                (void)session->tryMarkOutboundDirty();
-                scheduleGuid(top.mGuid, loopNowNs + sendIntervalNs);
-            }
-
-            ++processed;
-            madeProgress = true;
+        if (mSessionsState.compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
             break;
-        }
-
-        if (mFlushSchedule.empty()) {
-            return;
-        }
-
-        if (!madeProgress) {
-            return;
         }
     }
 }
 
-void ServerNetworkSystem::notifyIoWorker() noexcept {
-    if (mSendWakeRequested.exchange(true, std::memory_order_acq_rel)) {
+std::shared_ptr<Session> ServerNetworkSystem::removeSession(std::uint64_t key) {
+    auto current = mSessionsState.load(std::memory_order_acquire);
+    for (;;) {
+        auto it = current->mByGuid.find(key);
+        if (it == current->mByGuid.end()) {
+            return nullptr;
+        }
+
+        auto removed = it->second;
+        auto next    = std::make_shared<SessionsState>(*current);
+        next->mByGuid.erase(key);
+        next->mOrdered.clear();
+        next->mOrdered.reserve(next->mByGuid.size());
+        for (auto& [_, currentSession] : next->mByGuid) {
+            next->mOrdered.push_back(currentSession);
+        }
+
+        if (mSessionsState.compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
+            return removed;
+        }
+    }
+}
+
+void ServerNetworkSystem::submitConnectedEvent(
+    const RakNet::RakNetGUID&    guid,
+    const RakNet::SystemAddress& address
+) noexcept {
+    const auto callbacks = mCallbacksState.load(std::memory_order_acquire);
+    auto       connected = callbacks->mOnConnected;
+    auto       network   = callbacks->mOnNetworkEvent;
+
+    if (connected) {
+        (void)mThreadPool->submit([connected = std::move(connected), guid, address]() mutable noexcept {
+            connected(guid, address);
+        });
+    }
+
+    if (network) {
+        (void)mThreadPool->submit([network = std::move(network), guid, address]() mutable noexcept {
+            network(guid, address);
+        });
+    }
+}
+
+void ServerNetworkSystem::submitDisconnectedEvent(
+    const RakNet::RakNetGUID&    guid,
+    const RakNet::SystemAddress& address
+) noexcept {
+    const auto callbacks    = mCallbacksState.load(std::memory_order_acquire);
+    auto       disconnected = callbacks->mOnDisconnected;
+    auto       network      = callbacks->mOnNetworkEvent;
+
+    if (disconnected) {
+        (void)mThreadPool->submit([disconnected = std::move(disconnected), guid, address]() mutable noexcept {
+            disconnected(guid, address);
+        });
+    }
+
+    if (network) {
+        (void)mThreadPool->submit([network = std::move(network), guid, address]() mutable noexcept {
+            network(guid, address);
+        });
+    }
+}
+
+void ServerNetworkSystem::submitPacketEvent(
+    const RakNet::RakNetGUID&    guid,
+    const RakNet::SystemAddress& address,
+    std::unique_ptr<IPacket>&&   packet
+) noexcept {
+    const auto callbacks = mCallbacksState.load(std::memory_order_acquire);
+    auto       callback  = callbacks->mOnPacketReceive;
+
+    if (!callback || !packet) {
         return;
     }
 
-    mIoWakeSignal.release();
+    (void)mThreadPool->submit(
+        [callback = std::move(callback), guid, address, packet = std::move(packet)]() mutable noexcept {
+            callback(guid, address, std::move(packet));
+        }
+    );
 }
 
 void ServerNetworkSystem::RakPeerDeleter::operator()(RakNet::RakPeerInterface* peer) const noexcept {

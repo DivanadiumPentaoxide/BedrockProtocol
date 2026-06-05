@@ -8,6 +8,9 @@
 #include "sculk/protocol/connection/HandShakeToken.hpp"
 #include "../ssl/ES384.hpp"
 #include "../ssl/RS256.hpp"
+#include <cctype>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <sculk/reflection/jsonc/reflection.hpp>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
@@ -120,6 +123,93 @@ Result<HandShakeToken> HandShakeToken::fromString(std::string_view rawLoginToken
         .mPayload    = std::move(payload),
         .mSignature  = std::string(signature),
     };
+}
+
+namespace {
+
+std::string base64Encode(std::span<const std::byte> data) {
+    if (data.empty()) {
+        return {};
+    }
+
+    const auto  encodedSize = 4 * ((data.size() + 2) / 3);
+    std::string encoded(encodedSize, '\0');
+
+    const auto* input = reinterpret_cast<const unsigned char*>(data.data());
+    const auto  written =
+        EVP_EncodeBlock(reinterpret_cast<unsigned char*>(encoded.data()), input, static_cast<int>(data.size()));
+
+    if (written < 0) {
+        return {};
+    }
+
+    encoded.resize(static_cast<std::size_t>(written));
+    return encoded;
+}
+
+std::vector<std::byte> base64Decode(std::string_view data) {
+    if (data.empty()) {
+        return {};
+    }
+
+    std::string compact;
+    compact.reserve(data.size());
+    for (char ch : data) {
+        if (!std::isspace(static_cast<unsigned char>(ch))) {
+            compact.push_back(ch);
+        }
+    }
+
+    if (compact.empty() || (compact.size() % 4) != 0) {
+        return {};
+    }
+
+    std::vector<unsigned char> decodedBuffer((compact.size() / 4) * 3);
+    const auto                 written = EVP_DecodeBlock(
+        decodedBuffer.data(),
+        reinterpret_cast<const unsigned char*>(compact.data()),
+        static_cast<int>(compact.size())
+    );
+
+    if (written < 0) {
+        return {};
+    }
+
+    std::size_t decodedSize = static_cast<std::size_t>(written);
+    if (!compact.empty() && compact.back() == '=') {
+        --decodedSize;
+        if (compact.size() > 1 && compact[compact.size() - 2] == '=') {
+            --decodedSize;
+        }
+    }
+
+    std::vector<std::byte> decoded(decodedSize);
+    for (std::size_t i = 0; i < decodedSize; ++i) {
+        decoded[i] = static_cast<std::byte>(decodedBuffer[i]);
+    }
+    return decoded;
+}
+
+} // namespace
+
+HandShakeToken HandShakeToken::fromSalt(std::span<const std::byte> salt) {
+    HandShakeToken token{};
+    token.mPayload.salt = base64Encode(salt);
+    return token;
+}
+
+std::vector<std::byte> HandShakeToken::getSaltBytes() const { return base64Decode(mPayload.salt); }
+
+std::vector<std::byte> HandShakeToken::randomSalt() {
+    constexpr std::size_t  saltSize = 8;
+    std::vector<std::byte> salt(saltSize);
+
+    auto* output = reinterpret_cast<std::uint8_t*>(salt.data());
+    if (RAND_bytes(output, static_cast<int>(salt.size())) != 1) {
+        return {};
+    }
+
+    return salt;
 }
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

@@ -46,7 +46,7 @@ public:
     deriveSessionKey(std::span<const std::byte> token, std::span<const std::byte> sharedSecret);
 
     static Result<std::vector<std::byte>>
-    computeEcdhSharedSecret(const std::string& localPrivateKeyPem, const std::string& remotePublicKeyPem);
+    computeEcdhSharedSecret(std::string_view localPrivateKeyPem, std::string_view remotePublicKeyPem);
 
 private:
     static constexpr std::size_t CHECKSUM_SIZE  = 8;
