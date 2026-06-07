@@ -55,11 +55,13 @@ public:
 
     [[nodiscard]] bool getServerNetworkStatus(NetworkStatus& outStatus) const noexcept;
 
-    bool setOnConnected(ConnectionEventCallback callback) noexcept;
+    bool setOnConnected(ConnectionEventCallback&& callback) noexcept;
 
-    bool setOnDisconnected(ConnectionEventCallback callback) noexcept;
+    bool setOnDisconnected(ConnectionEventCallback&& callback) noexcept;
 
-    bool setOnPacketReceive(PacketReceiveCallback callback);
+    bool setOnConnectionFailed(ConnectionEventCallback&& callback) noexcept;
+
+    bool setOnPacketReceive(PacketReceiveCallback&& callback);
 
     [[nodiscard]] Session& getSession() const noexcept;
 
@@ -89,6 +91,7 @@ private:
     std::atomic<std::shared_ptr<Session>>                     mSession{};
     ConnectionEventCallback                                   mOnConnected{};
     ConnectionEventCallback                                   mOnDisconnected{};
+    ConnectionEventCallback                                   mOnConnectionFailed{};
     PacketReceiveCallback                                     mOnPacketReceive{};
 };
 

@@ -108,7 +108,7 @@ bool ClientNetworkSystem::getServerNetworkStatus(NetworkStatus& outStatus) const
     return true;
 }
 
-bool ClientNetworkSystem::setOnConnected(ConnectionEventCallback callback) noexcept {
+bool ClientNetworkSystem::setOnConnected(ConnectionEventCallback&& callback) noexcept {
     if (mRunning.load(std::memory_order_acquire)) {
         return false;
     }
@@ -116,7 +116,7 @@ bool ClientNetworkSystem::setOnConnected(ConnectionEventCallback callback) noexc
     return true;
 }
 
-bool ClientNetworkSystem::setOnDisconnected(ConnectionEventCallback callback) noexcept {
+bool ClientNetworkSystem::setOnDisconnected(ConnectionEventCallback&& callback) noexcept {
     if (mRunning.load(std::memory_order_acquire)) {
         return false;
     }
@@ -124,7 +124,15 @@ bool ClientNetworkSystem::setOnDisconnected(ConnectionEventCallback callback) no
     return true;
 }
 
-bool ClientNetworkSystem::setOnPacketReceive(PacketReceiveCallback callback) {
+bool ClientNetworkSystem::setOnConnectionFailed(ConnectionEventCallback&& callback) noexcept {
+    if (mRunning.load(std::memory_order_acquire)) {
+        return false;
+    }
+    mOnConnectionFailed = std::move(callback);
+    return true;
+}
+
+bool ClientNetworkSystem::setOnPacketReceive(PacketReceiveCallback&& callback) {
     if (mRunning.load(std::memory_order_acquire)) {
         return false;
     }
@@ -207,12 +215,8 @@ void ClientNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
     }
 
     if (messageId == DefaultMessageIDTypes::ID_DISCONNECTION_NOTIFICATION
-        || messageId == DefaultMessageIDTypes::ID_CONNECTION_LOST
-        || messageId == DefaultMessageIDTypes::ID_CONNECTION_ATTEMPT_FAILED
-        || messageId == DefaultMessageIDTypes::ID_NO_FREE_INCOMING_CONNECTIONS) {
+        || messageId == DefaultMessageIDTypes::ID_CONNECTION_LOST) {
 
-        // Do not clear mSession here. Packet/connection callbacks may still be
-        // in flight on worker threads and may query getSession().
         auto session = mSession.load(std::memory_order_acquire);
         if (session) {
             session->disconnect();
@@ -220,6 +224,21 @@ void ClientNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
 
         if (mOnDisconnected) {
             (void)mThreadPool->submit([this]() mutable noexcept { mOnDisconnected(); });
+        }
+        mRunning.store(false, std::memory_order_release);
+        return;
+    }
+
+    if (messageId == DefaultMessageIDTypes::ID_CONNECTION_ATTEMPT_FAILED
+        || messageId == DefaultMessageIDTypes::ID_NO_FREE_INCOMING_CONNECTIONS) {
+
+        auto session = mSession.load(std::memory_order_acquire);
+        if (session) {
+            session->disconnect();
+        }
+
+        if (mOnConnectionFailed) {
+            (void)mThreadPool->submit([this]() mutable noexcept { mOnConnectionFailed(); });
         }
         mRunning.store(false, std::memory_order_release);
         return;
