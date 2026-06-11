@@ -53,7 +53,7 @@ Session::~Session() { disconnect(); }
 
 bool Session::isCompressed() const noexcept { return mCompressionType.has_value(); }
 
-void Session::setCompression(CompressionType type, std::int32_t threshold) noexcept {
+void Session::setCompressed(CompressionType type, std::int32_t threshold) noexcept {
     (void)flushUnlocked();
     std::scoped_lock lock{mMutex};
     mCompressionType      = type;
@@ -194,7 +194,11 @@ bool Session::sendBatchedBufferImmediately(Buffer&& packetsBuffer) noexcept {
     compressedStream.writeAndMoveBuffer(std::move(packetsBuffer));
 
     if (mEncryption.has_value()) {
-        finalBuffer = mEncryption->encrypt(finalBuffer);
+        auto encrypted = mEncryption->encrypt(finalBuffer);
+        if (!encrypted) {
+            return false;
+        }
+        finalBuffer = std::move(*encrypted);
     }
 
     if (finalBuffer.empty()) {
@@ -330,7 +334,7 @@ bool Session::enqueueInboundPacket(Buffer&& buffer) noexcept {
     return mInboundPackets.enqueue(std::move(buffer));
 }
 
-Session::Buffer Session::serializeBatchedPackets(const BatchedBuffer& packets) {
+Result<Session::Buffer> Session::serializeBatchedPackets(const BatchedBuffer& packets) {
     Buffer       packetsBuffer{};
     BinaryStream packetStream{packetsBuffer};
     for (const auto& packet : packets) {
@@ -365,7 +369,11 @@ Session::Buffer Session::serializeBatchedPackets(const BatchedBuffer& packets) {
     compressedStream.writeAndMoveBuffer(std::move(packetsBuffer));
 
     if (mEncryption.has_value()) {
-        finalBuffer = mEncryption->encrypt(finalBuffer);
+        auto encrypted = mEncryption->encrypt(finalBuffer);
+        if (!encrypted) {
+            return error_utils::makeError("Failed to encrypt data");
+        }
+        finalBuffer = std::move(*encrypted);
     }
 
     return finalBuffer;
@@ -374,7 +382,10 @@ Session::Buffer Session::serializeBatchedPackets(const BatchedBuffer& packets) {
 Result<Session::BatchedBuffer> Session::deserializeBatchPackets(std::span<const std::byte> batchedBuffer) {
     if (mEncryption.has_value()) {
         auto decrypted = mEncryption->decrypt(batchedBuffer);
-        batchedBuffer  = decrypted;
+        if (!decrypted) {
+            return error_utils::makeError("Failed to decrypt data");
+        }
+        batchedBuffer = *decrypted;
     }
 
     ReadOnlyBinaryStream compressedStream{batchedBuffer};

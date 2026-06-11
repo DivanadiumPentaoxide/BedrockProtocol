@@ -13,13 +13,20 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class MoveActorAbsolutePacket : public IPacket {
 public:
+    enum class Flags : std::uint8_t {
+        OnGround        = 1u << 0,
+        Teleport        = 1u << 1,
+        ForceMove       = 1u << 2,
+        ForceCompletion = 1u << 3,
+    };
+
+public:
     std::uint64_t mActorRuntimeId{};
-    std::uint8_t  mHeader{};
+    Flags         mFlags{};
     Vec3          mPosition{};
     std::uint8_t  mRotationX{};
     std::uint8_t  mRotationY{};
     std::uint8_t  mRotationYHead{};
-    bool          mForceCompletion{};
 
 public:
     [[nodiscard]] MinecraftPacketIds getId() const noexcept override;
@@ -32,6 +39,15 @@ public:
 
     SCULK_PROTOCOL_PACKET_TO_STRING();
 };
+
+constexpr MoveActorAbsolutePacket::Flags
+operator|(MoveActorAbsolutePacket::Flags lhs, MoveActorAbsolutePacket::Flags rhs) {
+    return static_cast<MoveActorAbsolutePacket::Flags>(static_cast<std::uint8_t>(lhs) | static_cast<std::uint8_t>(rhs));
+}
+constexpr MoveActorAbsolutePacket::Flags
+operator&(MoveActorAbsolutePacket::Flags lhs, MoveActorAbsolutePacket::Flags rhs) {
+    return static_cast<MoveActorAbsolutePacket::Flags>(static_cast<std::uint8_t>(lhs) & static_cast<std::uint8_t>(rhs));
+}
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE
 

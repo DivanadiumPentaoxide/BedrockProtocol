@@ -296,7 +296,14 @@ std::unique_ptr<IPacket> MinecraftPackets::readAndCreatePacketFromStream(ReadOnl
 
 std::unique_ptr<IPacket> MinecraftPackets::readAndCreatePacketFromBuffer(std::span<const std::byte> buffer) {
     auto stream = ReadOnlyBinaryStream{buffer};
-    return readAndCreatePacketFromStream(stream);
+    auto packet = readAndCreatePacketFromStream(stream);
+    if (!packet) {
+        return nullptr;
+    }
+    if (stream.hasDataLeft()) {
+        return nullptr;
+    }
+    return packet;
 }
 
 std::unique_ptr<IPacket> MinecraftPackets::createPacket(MinecraftPacketIds packetId) {

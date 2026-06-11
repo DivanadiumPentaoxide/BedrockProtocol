@@ -18,29 +18,27 @@ std::string_view MoveActorAbsolutePacket::getName() const noexcept { return "Mov
 
 void MoveActorAbsolutePacket::write(BinaryStream& stream) const {
     stream.writeUnsignedVarInt64(mActorRuntimeId);
-    stream.writeByte(mHeader);
+    stream.writeEnum(mFlags, &BinaryStream::writeByte);
     mPosition.write(stream);
     stream.writeByte(mRotationX);
     stream.writeByte(mRotationY);
     stream.writeByte(mRotationYHead);
-    stream.writeBool(mForceCompletion);
 }
 
 Result<> MoveActorAbsolutePacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readUnsignedVarInt64(mActorRuntimeId));
-    _SCULK_READ(stream.readByte(mHeader));
+    _SCULK_READ(stream.readEnum(mFlags, &ReadOnlyBinaryStream::readByte));
     _SCULK_READ(mPosition.read(stream));
     _SCULK_READ(stream.readByte(mRotationX));
     _SCULK_READ(stream.readByte(mRotationY));
-    _SCULK_READ(stream.readByte(mRotationYHead));
-    return stream.readBool(mForceCompletion);
+    return stream.readByte(mRotationYHead);
 }
 
 #ifdef SCULK_PROTOCOL_ENABLE_FORMATTING
 std::string MoveActorAbsolutePacket::toString() const {
     return SCULK_FORMAT_PACKET(
         SCULK_FORMAT_FIELD(mActorRuntimeId),
-        SCULK_FORMAT_FIELD(mHeader),
+        SCULK_FORMAT_FIELD(mFlags),
         SCULK_FORMAT_FIELD(mPosition),
         SCULK_FORMAT_FIELD(mRotationX),
         SCULK_FORMAT_FIELD(mRotationY),

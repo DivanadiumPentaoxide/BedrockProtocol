@@ -136,7 +136,7 @@ constexpr bool isValidUTF8(std::string_view s) {
 }
 
 constexpr std::string dumpString(std::string_view content) {
-    std::string result;
+    std::string result{};
     result.reserve(static_cast<size_t>(static_cast<double>(content.size()) * 1.05));
 
     for (char c : content) {
@@ -193,14 +193,14 @@ constexpr std::string typeToString(const T& value) {
     } else if constexpr (concepts::IsOptional<T>) {
         return value.has_value() ? typeToString(*value) : "null";
     } else if constexpr (concepts::IsArray<T>) {
-        std::string out{"["};
+        std::string out{"[ "};
         for (auto it = value.begin(); it != value.end(); ++it) {
             out.append(typeToString(*it));
             if (std::next(it) != value.end()) {
                 out.append(", ");
             }
         }
-        out.push_back(']');
+        out.append(" ]");
         return out;
     } else if constexpr (concepts::IsMap<T>) {
         std::string out{"{"};
@@ -210,29 +210,29 @@ constexpr std::string typeToString(const T& value) {
                 out.append(", ");
             }
         }
-        out.push_back('}');
+        out.append(" }");
         return out;
     } else if constexpr (concepts::IsVector<T>) {
-        std::string out{"["};
+        std::string out{"[ "};
         for (auto it = value.begin(); it != value.end(); ++it) {
             out.append(typeToString(*it));
             if (std::next(it) != value.end()) {
                 out.append(", ");
             }
         }
-        out.push_back(']');
+        out.append(" ]");
         return out;
     } else if constexpr (concepts::IsVariant<T>) {
         return std::visit([](const auto& v) { return typeToString(v); }, value);
     } else if constexpr (concepts::IsBitset<T>) {
-        std::string out{"{"};
+        std::string out{"{ "};
         for (std::size_t i = 0; i < value.size(); ++i) {
             out.append(std::format("{}: {}", i, value.test(i)));
             if (i + 1 < value.size()) {
                 out.append(", ");
             }
         }
-        out.push_back('}');
+        out.append(" }");
         return out;
     } else if constexpr (std::is_aggregate_v<T>) {
         return toString(value);

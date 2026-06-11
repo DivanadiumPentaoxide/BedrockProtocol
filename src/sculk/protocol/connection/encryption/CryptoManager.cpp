@@ -191,34 +191,34 @@ bool CryptoManager::initializeCipher(EvpCipherCtxPtr& ctx, bool encrypt) const {
         && EVP_CIPHER_CTX_set_padding(ctx.get(), 0) == 1;
 }
 
-std::vector<std::byte> CryptoManager::ctrCrypt(EvpCipherCtxPtr& ctx, std::span<const std::byte> bytes) const {
+Result<std::vector<std::byte>> CryptoManager::ctrCrypt(EvpCipherCtxPtr& ctx, std::span<const std::byte> bytes) const {
     if (bytes.empty()) {
         return {};
     }
 
     std::vector<std::byte> output(bytes.size());
     if (!ctx) {
-        return {bytes.begin(), bytes.end()};
+        return error_utils::makeError("Cipher context is not initialized");
     }
 
     int        outLen = 0;
     const bool ok     = EVP_CipherUpdate(
-                        ctx.get(),
-                        reinterpret_cast<std::uint8_t*>(output.data()),
-                        &outLen,
-                        reinterpret_cast<const std::uint8_t*>(bytes.data()),
-                        static_cast<int>(bytes.size())
-                    )
-                 == 1;
+                            ctx.get(),
+                            reinterpret_cast<std::uint8_t*>(output.data()),
+                            &outLen,
+                            reinterpret_cast<const std::uint8_t*>(bytes.data()),
+                            static_cast<int>(bytes.size())
+                        )
+                     == 1;
 
     if (!ok || static_cast<std::size_t>(outLen) != output.size()) {
-        return {bytes.begin(), bytes.end()};
+        return error_utils::makeError("Failed to process data with cipher");
     }
 
     return output;
 }
 
-std::vector<std::byte> CryptoManager::encrypt(std::span<const std::byte> input) {
+Result<std::vector<std::byte>> CryptoManager::encrypt(std::span<const std::byte> input) {
     if (input.empty()) {
         return {};
     }
@@ -230,13 +230,13 @@ std::vector<std::byte> CryptoManager::encrypt(std::span<const std::byte> input) 
     data.insert(data.end(), sum.begin(), sum.end());
 
     if (!mEncryptCtx && !initializeCipher(mEncryptCtx, true)) {
-        return {input.begin(), input.end()};
+        return error_utils::makeError("Failed to initialize encryption cipher");
     }
 
     return ctrCrypt(mEncryptCtx, data);
 }
 
-std::vector<std::byte> CryptoManager::decrypt(std::span<const std::byte> input) {
+Result<std::vector<std::byte>> CryptoManager::decrypt(std::span<const std::byte> input) {
     if (input.empty()) {
         return {};
     }
@@ -245,15 +245,18 @@ std::vector<std::byte> CryptoManager::decrypt(std::span<const std::byte> input) 
     }
 
     if (!mDecryptCtx && !initializeCipher(mDecryptCtx, false)) {
-        return {input.begin(), input.end()};
+        return error_utils::makeError("Failed to initialize decryption cipher");
     }
 
     auto clear = ctrCrypt(mDecryptCtx, input);
-    if (!verify(clear)) {
-        return {};
+    if (!clear) {
+        return error_utils::makeError("Failed to decrypt data");
+    }
+    if (!verify(*clear)) {
+        return error_utils::makeError("Failed to verify decrypted data");
     }
 
-    clear.resize(clear.size() - CHECKSUM_SIZE);
+    clear->resize(clear->size() - CHECKSUM_SIZE);
     return clear;
 }
 

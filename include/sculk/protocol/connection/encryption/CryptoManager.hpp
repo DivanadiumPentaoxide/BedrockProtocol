@@ -36,10 +36,10 @@ public:
 
     explicit CryptoManager(std::vector<std::byte>&& sessionKey);
 
-    std::vector<std::byte> encrypt(std::span<const std::byte> input);
-    std::vector<std::byte> decrypt(std::span<const std::byte> input);
+    [[nodiscard]] Result<std::vector<std::byte>> encrypt(std::span<const std::byte> input);
+    [[nodiscard]] Result<std::vector<std::byte>> decrypt(std::span<const std::byte> input);
 
-    bool verify(std::span<const std::byte> input);
+    [[nodiscard]] bool verify(std::span<const std::byte> input);
 
 public:
     static Result<std::vector<std::byte>>
@@ -68,8 +68,8 @@ private:
     [[nodiscard]] std::array<std::byte, CHECKSUM_SIZE>
     checksum(std::uint64_t counter, const std::byte* data, std::size_t dataSize) const;
 
-    [[nodiscard]] bool                   initializeCipher(EvpCipherCtxPtr& ctx, bool encrypt) const;
-    [[nodiscard]] std::vector<std::byte> ctrCrypt(EvpCipherCtxPtr& ctx, std::span<const std::byte> bytes) const;
+    [[nodiscard]] bool                           initializeCipher(EvpCipherCtxPtr& ctx, bool encrypt) const;
+    [[nodiscard]] Result<std::vector<std::byte>> ctrCrypt(EvpCipherCtxPtr& ctx, std::span<const std::byte> bytes) const;
 };
 
 } // namespace sculk::protocol::inline abi_v944

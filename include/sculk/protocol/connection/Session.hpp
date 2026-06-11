@@ -63,19 +63,19 @@ public:
 public:
     [[nodiscard]] bool isCompressed() const noexcept;
 
-    void setCompression(CompressionType type, std::int32_t threshold) noexcept;
+    void setCompressed(CompressionType type, std::int32_t threshold) noexcept;
 
     [[nodiscard]] bool isEncrypted() const noexcept;
 
     void setEncrypted(std::vector<std::byte>&& key) noexcept;
 
-    bool sendPacket(Buffer&& Buffer);
+    bool sendPacket(Buffer&& buffer);
 
-    bool sendPacket(BufferView Buffer);
+    bool sendPacket(BufferView buffer);
 
-    bool sendPacketImmediately(Buffer&& Buffer);
+    bool sendPacketImmediately(Buffer&& buffer);
 
-    bool sendPacketImmediately(BufferView Buffer);
+    bool sendPacketImmediately(BufferView buffer);
 
     [[nodiscard]] bool flush();
 
@@ -106,7 +106,7 @@ public:
 
     [[nodiscard]] bool enqueueInboundPacket(Buffer&& buffer) noexcept;
 
-    [[nodiscard]] Buffer serializeBatchedPackets(const BatchedBuffer& packets);
+    [[nodiscard]] Result<Buffer> serializeBatchedPackets(const BatchedBuffer& packets);
 
     [[nodiscard]] Result<BatchedBuffer> deserializeBatchPackets(std::span<const std::byte> batchedBuffer);
 
