@@ -38,12 +38,12 @@ ClientNetworkSystem::ClientNetworkSystem(thread::ThreadPool& threadPool, io::Cli
 
 ClientNetworkSystem::~ClientNetworkSystem() { disconnect(); }
 
-bool ClientNetworkSystem::connect(std::string_view host, std::uint16_t port, std::uint16_t localPort) {
+bool ClientNetworkSystem::connect(std::string_view host, std::uint16_t port) {
     if (mRunning.exchange(true, std::memory_order_acq_rel)) {
         return false;
     }
 
-    RakNet::SocketDescriptor descriptor{localPort, nullptr};
+    RakNet::SocketDescriptor descriptor{};
     descriptor.socketFamily = AF_INET;
 
     const auto startupResult = mPeer->Startup(1, &descriptor, 1);

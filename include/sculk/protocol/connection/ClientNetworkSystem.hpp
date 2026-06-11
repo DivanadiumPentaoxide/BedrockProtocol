@@ -45,7 +45,7 @@ public:
     ~ClientNetworkSystem();
 
 public:
-    [[nodiscard]] bool connect(std::string_view host, std::uint16_t port, std::uint16_t localPort = 0);
+    [[nodiscard]] bool connect(std::string_view host, std::uint16_t port);
 
     void disconnect();
 

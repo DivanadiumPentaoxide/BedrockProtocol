@@ -39,13 +39,15 @@ ServerNetworkSystem::ServerNetworkSystem(std::size_t workerThreadCount)
 : mMotd("Sculk Protocol Library"),
   mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(std::make_unique<thread::ThreadPool>(workerThreadCount)),
-  mThreadPool(mOwnedThreadPool.get()) {}
+  mThreadPool(mOwnedThreadPool.get()),
+  mSessionsState(std::make_shared<SessionsState>()) {}
 
 ServerNetworkSystem::ServerNetworkSystem(thread::ThreadPool& threadPool)
 : mMotd("Sculk Protocol Library"),
   mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(nullptr),
-  mThreadPool(&threadPool) {}
+  mThreadPool(&threadPool),
+  mSessionsState(std::make_shared<SessionsState>()) {}
 
 ServerNetworkSystem::~ServerNetworkSystem() { stop(); }
 
