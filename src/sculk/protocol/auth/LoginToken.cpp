@@ -22,7 +22,10 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
         return error_utils::makeError("Login token does not contain a valid '" #FIELD "' payload field");              \
     }
 
-#define SCULK_LOGIN_TOKEN_SERIALIZE_OPTION_INIT() static reflection::jsonc::options options{.indent = -1}
+#define SCULK_LOGIN_TOKEN_SERIALIZE_OPTION_INIT()                                                                      \
+    static reflection::jsonc::options options {                                                                        \
+        .indent = -1, .allow_trailing_comma = false, .enum_cast_case_sensitive = true                                  \
+    }
 
 #define SCULK_LOGIN_TOKEN_CREATE_JSON(PART, DATA)                                                                      \
     jsonc::json PART##Json = jsonc::json::object();                                                                    \

@@ -20,7 +20,10 @@ constexpr std::string_view removeLeadingCharacter(std::string_view key) {
 }
 } // namespace
 
-#define SCULK_CLIENT_PROPERTIES_SERIALIZE_OPTION_INIT() static reflection::jsonc::options options{.indent = -1}
+#define SCULK_CLIENT_PROPERTIES_SERIALIZE_OPTION_INIT()                                                                \
+    static reflection::jsonc::options options {                                                                        \
+        .indent = -1, .allow_trailing_comma = false, .enum_cast_case_sensitive = true                                  \
+    }
 
 #define SCULK_CLIENT_PROPERTIES_CREATE_JSON(PART, DATA)                                                                \
     jsonc::json PART##Json = jsonc::json::object();                                                                    \

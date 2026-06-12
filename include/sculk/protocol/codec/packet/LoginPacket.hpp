@@ -16,6 +16,15 @@ public:
     std::string  mRawConnectionRequest{};
 
 public:
+    [[nodiscard]] LoginPacket(std::int32_t networkVersion = getProtocolVersion()) noexcept
+    : mNetworkVersion(networkVersion) {};
+    [[nodiscard]] LoginPacket(
+        std::string_view rawConnectionRequest,
+        std::int32_t     networkVersion = getProtocolVersion()
+    ) noexcept
+    : mNetworkVersion(networkVersion),
+      mRawConnectionRequest(rawConnectionRequest) {};
+
     [[nodiscard]] MinecraftPacketIds getId() const noexcept override;
 
     [[nodiscard]] std::string_view getName() const noexcept override;

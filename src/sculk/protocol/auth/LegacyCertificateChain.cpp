@@ -15,7 +15,10 @@ constexpr std::string_view LEGACY_MOJANG_PUBLIC_KEY_PEM =
     "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAECRXueJeTDqNRRgJi/vlRufByu/2G0i2Ebt6YMar5QX/R0DIIyrJMcUpruK4QveTfJSTp3Shlq4Gk34cD/"
     "4GUWwkv0DVuzeuB+tXija7HBxii03NHDbPAD0AKnLr2wdAp";
 
-#define SCULK_CERTIFICATE_SERIALIZE_OPTION_INIT() static reflection::jsonc::options options{.indent = -1}
+#define SCULK_CERTIFICATE_SERIALIZE_OPTION_INIT()                                                                      \
+    static reflection::jsonc::options options {                                                                        \
+        .indent = -1, .allow_trailing_comma = false, .enum_cast_case_sensitive = true                                  \
+    }
 
 #define SCULK_CERTIFICATE_CREATE_JSON(PART, DATA)                                                                      \
     jsonc::json PART##Json = jsonc::json::object();                                                                    \

@@ -12,9 +12,6 @@
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
-RequestNetworkSettingsPacket::RequestNetworkSettingsPacket(std::int32_t clientNetworkVersion) noexcept
-: mClientNetworkVersion(clientNetworkVersion) {}
-
 MinecraftPacketIds RequestNetworkSettingsPacket::getId() const noexcept {
     return MinecraftPacketIds::RequestNetworkSettings;
 }

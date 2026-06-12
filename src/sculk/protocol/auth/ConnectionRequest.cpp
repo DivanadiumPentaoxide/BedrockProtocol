@@ -193,10 +193,10 @@ inline void ensureAndFillLegacyChain(ConnectionRequest& request) {
                     .iss         = "Mojang",
                     .iat         = 0,
                     .extraData   = Certificate::ExtraData{
-                          .identity    = "", // Empty identity
-                          .displayName = request.getXboxLiveName(),
-                          .XUID        = "",      // Empty XUID
-                          .sandBoxId   = "RETAIL" // Always "RETAIL"
+                        .identity    = "", // Empty identity
+                        .displayName = request.getXboxLiveName(),
+                        .XUID        = "",      // Empty XUID
+                        .sandBoxId   = "RETAIL" // Always "RETAIL"
                     }
                 }
             }
@@ -321,7 +321,11 @@ Result<ConnectionRequest> ConnectionRequest::fromString(std::string_view rawRequ
     }
 
     const auto&                       authJson = *authJsonOpt;
-    static reflection::jsonc::options options{.indent = -1, .allow_trailing_comma = false};
+    static reflection::jsonc::options options{
+        .indent                   = -1,
+        .allow_trailing_comma     = false,
+        .enum_cast_case_sensitive = true
+    };
 
     AuthenticationType authType{};
     SCULK_CONNECTION_REQUEST_DESERIALIZE_REQUIRED("AuthenticationType", authType);
