@@ -85,6 +85,7 @@ if(PROTOCOL_ENABLE_AUTHENTICATION)
     set(HTTPLIB_REQUIRE_OPENSSL ON CACHE BOOL "Require OpenSSL for cpp-httplib HTTPS" FORCE)
     set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF CACHE BOOL "Disable optional zlib for cpp-httplib" FORCE)
     set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF CACHE BOOL "Disable optional brotli for cpp-httplib" FORCE)
+    set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF CACHE BOOL "Disable optional zstd for cpp-httplib" FORCE)
 
     FetchContent_Declare(
         cpp_httplib
@@ -196,7 +197,7 @@ if(PROTOCOL_ENABLE_CONNECTION)
     FetchContent_Declare(
         RakNet
         GIT_REPOSITORY https://github.com/SculkCatalystMC/RakNet
-        GIT_TAG master
+        GIT_TAG main
     )
     FetchContent_MakeAvailable(RakNet)
 
