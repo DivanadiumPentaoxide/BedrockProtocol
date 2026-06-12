@@ -16,7 +16,7 @@ public:
 
 public:
     [[nodiscard]] RequestNetworkSettingsPacket() noexcept = default;
-    [[nodiscard]] RequestNetworkSettingsPacket(std::int32_t clientNetworkVersion) noexcept;
+    [[nodiscard]] RequestNetworkSettingsPacket(std::int32_t clientNetworkVersion = getProtocolVersion()) noexcept;
 
     [[nodiscard]] MinecraftPacketIds getId() const noexcept override;
 

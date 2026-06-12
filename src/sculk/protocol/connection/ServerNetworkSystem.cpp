@@ -137,7 +137,7 @@ void ServerNetworkSystem::stop() {
     }
 
     if (mPeer) {
-        mPeer->Shutdown(0);
+        mPeer->Shutdown(20);
     }
 }
 

@@ -88,7 +88,7 @@ void ClientNetworkSystem::disconnect() {
     }
 
     if (mPeer) {
-        mPeer->Shutdown(0);
+        mPeer->Shutdown(20);
     }
 }
 
@@ -210,7 +210,12 @@ void ClientNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
         auto session = std::make_shared<Session>(mPeer.get(), remote);
         mSession.store(session, std::memory_order_release);
         if (mOnConnected) {
-            (void)mThreadPool->submit([this]() mutable noexcept { mOnConnected(); });
+            auto onConnected = mOnConnected;
+            (void)mThreadPool->submit([onConnected = std::move(onConnected)]() mutable noexcept {
+                if (onConnected) {
+                    onConnected();
+                }
+            });
         }
         return;
     }
@@ -224,7 +229,12 @@ void ClientNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
         }
 
         if (mOnDisconnected) {
-            (void)mThreadPool->submit([this]() mutable noexcept { mOnDisconnected(); });
+            auto onDisconnected = mOnDisconnected;
+            (void)mThreadPool->submit([onDisconnected = std::move(onDisconnected)]() mutable noexcept {
+                if (onDisconnected) {
+                    onDisconnected();
+                }
+            });
         }
         mRunning.store(false, std::memory_order_release);
         return;
@@ -239,7 +249,12 @@ void ClientNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
         }
 
         if (mOnConnectionFailed) {
-            (void)mThreadPool->submit([this]() mutable noexcept { mOnConnectionFailed(); });
+            auto onConnectionFailed = mOnConnectionFailed;
+            (void)mThreadPool->submit([onConnectionFailed = std::move(onConnectionFailed)]() mutable noexcept {
+                if (onConnectionFailed) {
+                    onConnectionFailed();
+                }
+            });
         }
         mRunning.store(false, std::memory_order_release);
         return;
@@ -262,11 +277,14 @@ void ClientNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
         return;
     }
 
+    auto onPacketReceive = mOnPacketReceive;
     for (auto& payload : *packets) {
-        if (mOnPacketReceive) {
+        if (onPacketReceive) {
             auto packetObj = MinecraftPackets::readAndCreatePacketFromBuffer(payload);
-            (void)mThreadPool->submit([this, packet = std::move(packetObj)]() mutable noexcept {
-                mOnPacketReceive(std::move(packet));
+            (void)mThreadPool->submit([onPacketReceive, packet = std::move(packetObj)]() mutable noexcept {
+                if (onPacketReceive) {
+                    onPacketReceive(std::move(packet));
+                }
             });
         } else {
             (void)session->enqueueInboundPacket(std::move(payload));
