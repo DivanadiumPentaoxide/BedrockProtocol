@@ -18,6 +18,7 @@ public:
     SerializedSkin mSerializedSkin{};
     std::string    mNewSkinName{};
     std::string    mOldSkinName{};
+    bool           mIsTrustedSkin{};
 
 public:
     [[nodiscard]] MinecraftPacketIds getId() const noexcept override;

@@ -21,13 +21,15 @@ void PlayerSkinPacket::write(BinaryStream& stream) const {
     mSerializedSkin.write(stream);
     stream.writeString(mNewSkinName);
     stream.writeString(mOldSkinName);
+    stream.writeBool(mIsTrustedSkin);
 }
 
 Result<> PlayerSkinPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(mUUID.read(stream));
     _SCULK_READ(mSerializedSkin.read(stream));
     _SCULK_READ(stream.readString(mNewSkinName));
-    return stream.readString(mOldSkinName);
+    _SCULK_READ(stream.readString(mOldSkinName));
+    return stream.readBool(mIsTrustedSkin);
 }
 
 #ifdef SCULK_PROTOCOL_ENABLE_FORMATTING
