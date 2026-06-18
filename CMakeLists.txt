@@ -116,13 +116,14 @@ if(PROTOCOL_ENABLE_CONNECTION)
 
     target_include_directories(Protocol PUBLIC $<BUILD_INTERFACE:${concurrentqueue_SOURCE_DIR}>)
 
-    # FetchContent_Declare(
-    # parallel_hashmap
-    # GIT_REPOSITORY https://github.com/greg7mdp/parallel-hashmap.git
-    # GIT_TAG v2.0.0
-    # )
-    # FetchContent_MakeAvailable(parallel_hashmap)
-    # target_include_directories(Protocol PUBLIC $<BUILD_INTERFACE:${parallel_hashmap_SOURCE_DIR}>)
+    FetchContent_Declare(
+        parallel_hashmap
+        GIT_REPOSITORY https://github.com/greg7mdp/parallel-hashmap.git
+        GIT_TAG v2.0.0
+    )
+    FetchContent_MakeAvailable(parallel_hashmap)
+    target_include_directories(Protocol SYSTEM PUBLIC $<BUILD_INTERFACE:${parallel_hashmap_SOURCE_DIR}>)
+
     set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Disable zlib tests" FORCE)
     set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Disable zlib examples" FORCE)
     set(SKIP_INSTALL_ALL ON CACHE BOOL "Disable zlib install targets" FORCE)

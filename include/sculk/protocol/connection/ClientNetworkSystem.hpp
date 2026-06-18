@@ -9,7 +9,7 @@
 #include "Session.hpp"
 #include "sculk/protocol/codec/packet/IPacket.hpp"
 #include "sculk/protocol/connection/thread/ThreadPool.hpp"
-#include "sculk/protocol/utility/AtomicSharedPtr.hpp"
+#include "thread/AtomicSharedPtr.hpp"
 #include <RakPeerInterface.h>
 #include <atomic>
 #include <cstddef>

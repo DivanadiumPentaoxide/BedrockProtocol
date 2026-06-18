@@ -9,7 +9,6 @@
 #include "Session.hpp"
 #include "sculk/protocol/codec/packet/IPacket.hpp"
 #include "sculk/protocol/connection/thread/ThreadPool.hpp"
-#include "sculk/protocol/utility/AtomicSharedPtr.hpp"
 #include <RakPeerInterface.h>
 #include <atomic>
 #include <cstddef>
@@ -17,13 +16,25 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <parallel_hashmap/phmap.h>
+#include <shared_mutex>
 #include <string>
 #include <string_view>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
+
+namespace detail {
+template <
+    class K,
+    class V,
+    class Hash  = phmap::priv::hash_default_hash<K>,
+    class Eq    = phmap::priv::hash_default_eq<K>,
+    class Alloc = phmap::priv::Allocator<phmap::priv::Pair<const K, V>>,
+    size_t N    = 6>
+using ThreadSafeParallelFlatHashMap = phmap::parallel_flat_hash_map<K, V, Hash, Eq, Alloc, N, std::shared_mutex>;
+}
 
 class ServerNetworkSystem final {
 public:
@@ -66,7 +77,7 @@ public:
 
     bool setOnPacketReceive(PacketReceiveCallback&& callback);
 
-    [[nodiscard]] std::shared_ptr<Session> getSession(const RakNet::RakNetGUID& guid) const noexcept;
+    [[nodiscard]] std::weak_ptr<Session> getSession(const RakNet::RakNetGUID& guid) const noexcept;
 
     void disconnectClient(const RakNet::RakNetGUID& guid) noexcept;
 
@@ -75,10 +86,7 @@ private:
         void operator()(RakNet::RakPeerInterface* peer) const noexcept;
     };
 
-    struct SessionsState {
-        std::unordered_map<std::uint64_t, std::shared_ptr<Session>> mByGuid{};
-        std::vector<std::shared_ptr<Session>>                       mOrdered{};
-    };
+    using SessionsMap = detail::ThreadSafeParallelFlatHashMap<RakNet::RakNetGUID, std::shared_ptr<Session>>;
 
 private:
     void receiveLoop(std::stop_token stopToken);
@@ -87,9 +95,11 @@ private:
 
     void processIncomingPacket(RakNet::Packet* packet);
 
-    void upsertSession(std::uint64_t key, std::shared_ptr<Session> session);
+    [[nodiscard]] std::shared_ptr<Session> getSessionShared(const RakNet::RakNetGUID& guid) const noexcept;
 
-    std::shared_ptr<Session> removeSession(std::uint64_t key);
+    void upsertSession(const RakNet::RakNetGUID& key, std::shared_ptr<Session> session);
+
+    std::shared_ptr<Session> removeSession(const RakNet::RakNetGUID& key);
 
 private:
     std::uint32_t                                             mMaxConnections{};
@@ -102,7 +112,7 @@ private:
     std::atomic_bool                                          mRunning{false};
     std::jthread                                              mReceiveThread{};
     std::jthread                                              mFlushThread{};
-    AtomicSharedPtr<SessionsState>                            mSessionsState{};
+    SessionsMap                                               mSessions{};
     ConnectionEventCallback                                   mOnConnected{};
     ConnectionEventCallback                                   mOnDisconnected{};
     PacketReceiveCallback                                     mOnPacketReceive{};

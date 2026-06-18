@@ -24,7 +24,7 @@ public:
     AtomicSharedPtr& operator=(const AtomicSharedPtr&) = delete;
 
     [[nodiscard]] std::shared_ptr<T> load(std::memory_order order = std::memory_order_seq_cst) const noexcept {
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__clang__))
+#ifndef _LIBCPP_VERSION
         return mValue.load(order);
 #else
         return std::atomic_load_explicit(&mValue, order);
@@ -32,7 +32,7 @@ public:
     }
 
     void store(std::shared_ptr<T> value, std::memory_order order = std::memory_order_seq_cst) noexcept {
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__clang__))
+#ifndef _LIBCPP_VERSION
         mValue.store(std::move(value), order);
 #else
         std::atomic_store_explicit(&mValue, std::move(value), order);
@@ -41,7 +41,7 @@ public:
 
     [[nodiscard]] std::shared_ptr<T>
     exchange(std::shared_ptr<T> value, std::memory_order order = std::memory_order_seq_cst) noexcept {
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__clang__))
+#ifndef _LIBCPP_VERSION
         return mValue.exchange(std::move(value), order);
 #else
         return std::atomic_exchange_explicit(&mValue, std::move(value), order);
@@ -54,7 +54,7 @@ public:
         std::memory_order   success,
         std::memory_order   failure
     ) noexcept {
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__clang__))
+#ifndef _LIBCPP_VERSION
         return mValue.compare_exchange_weak(expected, std::move(desired), success, failure);
 #else
         return std::atomic_compare_exchange_weak_explicit(&mValue, &expected, std::move(desired), success, failure);
@@ -62,7 +62,7 @@ public:
     }
 
 private:
-#if defined(_MSC_VER) || (defined(__GNUC__) && !defined(__clang__))
+#ifndef _LIBCPP_VERSION
     std::atomic<std::shared_ptr<T>> mValue{};
 #else
     std::shared_ptr<T> mValue{};

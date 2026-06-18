@@ -39,15 +39,13 @@ ServerNetworkSystem::ServerNetworkSystem(std::size_t workerThreadCount)
 : mMotd("Sculk Protocol Library"),
   mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(std::make_unique<thread::ThreadPool>(workerThreadCount)),
-  mThreadPool(mOwnedThreadPool.get()),
-  mSessionsState(std::make_shared<SessionsState>()) {}
+  mThreadPool(mOwnedThreadPool.get()) {}
 
 ServerNetworkSystem::ServerNetworkSystem(thread::ThreadPool& threadPool)
 : mMotd("Sculk Protocol Library"),
   mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(nullptr),
-  mThreadPool(&threadPool),
-  mSessionsState(std::make_shared<SessionsState>()) {}
+  mThreadPool(&threadPool) {}
 
 ServerNetworkSystem::~ServerNetworkSystem() { stop(); }
 
@@ -127,10 +125,11 @@ void ServerNetworkSystem::stop() {
         mFlushThread.join();
     }
 
-    std::shared_ptr<SessionsState> previousState{};
-    previousState = mSessionsState.exchange(std::make_shared<SessionsState>(), std::memory_order_acq_rel);
+    std::vector<std::shared_ptr<Session>> sessions;
+    sessions.reserve(mSessions.size());
+    mSessions.for_each([&sessions](const SessionsMap::value_type& entry) { sessions.push_back(entry.second); });
 
-    for (const auto& session : previousState->mOrdered) {
+    for (const auto& session : sessions) {
         if (session) {
             session->disconnect();
         }
@@ -147,7 +146,7 @@ bool ServerNetworkSystem::getClientNetworkStatus(
     const RakNet::RakNetGUID& guid,
     NetworkStatus&            outStatus
 ) const noexcept {
-    auto session = getSession(guid);
+    auto session = getSessionShared(guid);
     if (!session) {
         return false;
     }
@@ -156,8 +155,12 @@ bool ServerNetworkSystem::getClientNetworkStatus(
     return true;
 }
 
-std::size_t ServerNetworkSystem::getSessionsCount() const {
-    return mSessionsState.load(std::memory_order_acquire)->mByGuid.size();
+std::size_t ServerNetworkSystem::getSessionsCount() const { return mSessions.size(); }
+
+std::shared_ptr<Session> ServerNetworkSystem::getSessionShared(const RakNet::RakNetGUID& guid) const noexcept {
+    std::shared_ptr<Session> session{};
+    (void)mSessions.if_contains(guid, [&session](const SessionsMap::value_type& entry) { session = entry.second; });
+    return session;
 }
 
 bool ServerNetworkSystem::setOnConnected(ConnectionEventCallback&& callback) noexcept {
@@ -184,22 +187,16 @@ bool ServerNetworkSystem::setOnPacketReceive(PacketReceiveCallback&& callback) {
     return true;
 }
 
-std::shared_ptr<Session> ServerNetworkSystem::getSession(const RakNet::RakNetGUID& guid) const noexcept {
-    const auto sessions = mSessionsState.load(std::memory_order_acquire);
-    auto       it       = sessions->mByGuid.find(guid.g);
-    if (it == sessions->mByGuid.end()) {
-        return nullptr;
-    }
-
-    return it->second;
+std::weak_ptr<Session> ServerNetworkSystem::getSession(const RakNet::RakNetGUID& guid) const noexcept {
+    return getSessionShared(guid);
 }
 
 void ServerNetworkSystem::disconnectClient(const RakNet::RakNetGUID& guid) noexcept {
-    auto session = getSession(guid);
+    auto session = getSessionShared(guid);
     if (session) {
         session->disconnect();
     }
-    removeSession(guid.g);
+    removeSession(guid);
 }
 
 void ServerNetworkSystem::receiveLoop(std::stop_token stopToken) {
@@ -226,9 +223,12 @@ void ServerNetworkSystem::flushLoop(std::stop_token stopToken) {
         const auto tickBegin = std::chrono::steady_clock::now();
         const auto now       = std::chrono::steady_clock::now();
 
-        const auto sessions = mSessionsState.load(std::memory_order_acquire);
-        const auto total    = sessions->mOrdered.size();
-        const auto budget   = flushBudgetPerTick(total);
+        std::vector<std::shared_ptr<Session>> sessions;
+        sessions.reserve(mSessions.size());
+        mSessions.for_each([&sessions](const SessionsMap::value_type& entry) { sessions.push_back(entry.second); });
+
+        const auto total  = sessions.size();
+        const auto budget = flushBudgetPerTick(total);
 
         for (std::size_t i = 0; i < budget; ++i) {
             if (total == 0) {
@@ -236,7 +236,7 @@ void ServerNetworkSystem::flushLoop(std::stop_token stopToken) {
             }
 
             const auto index   = (cursor + i) % total;
-            auto&      session = sessions->mOrdered[index];
+            auto&      session = sessions[index];
             if (!session || !session->isConnected()) {
                 continue;
             }
@@ -262,7 +262,7 @@ void ServerNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
     }
 
     const auto messageId = packet->data[0];
-    const auto key       = packet->guid.g;
+    const auto key       = packet->guid;
 
     if (messageId == DefaultMessageIDTypes::ID_UNCONNECTED_PING) {
         return;
@@ -301,7 +301,7 @@ void ServerNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
         return;
     }
 
-    auto session = getSession(packet->guid);
+    auto session = getSessionShared(packet->guid);
     if (!session) {
         return;
     }
@@ -329,44 +329,23 @@ void ServerNetworkSystem::processIncomingPacket(RakNet::Packet* packet) {
     }
 }
 
-void ServerNetworkSystem::upsertSession(std::uint64_t key, std::shared_ptr<Session> session) {
-    auto current = mSessionsState.load(std::memory_order_acquire);
-    for (;;) {
-        auto next = std::make_shared<SessionsState>(*current);
-        next->mByGuid.insert_or_assign(key, session);
-        next->mOrdered.clear();
-        next->mOrdered.reserve(next->mByGuid.size());
-        for (auto& [_, currentSession] : next->mByGuid) {
-            next->mOrdered.push_back(currentSession);
-        }
-
-        if (mSessionsState.compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
-            break;
-        }
-    }
+void ServerNetworkSystem::upsertSession(const RakNet::RakNetGUID& key, std::shared_ptr<Session> session) {
+    mSessions.lazy_emplace_l(
+        key,
+        [&session](SessionsMap::value_type& existing) { existing.second = session; },
+        [key, &session](const auto& ctor) { ctor(key, session); }
+    );
 }
 
-std::shared_ptr<Session> ServerNetworkSystem::removeSession(std::uint64_t key) {
-    auto current = mSessionsState.load(std::memory_order_acquire);
-    for (;;) {
-        auto it = current->mByGuid.find(key);
-        if (it == current->mByGuid.end()) {
-            return nullptr;
-        }
-
-        auto removed = it->second;
-        auto next    = std::make_shared<SessionsState>(*current);
-        next->mByGuid.erase(key);
-        next->mOrdered.clear();
-        next->mOrdered.reserve(next->mByGuid.size());
-        for (auto& [_, currentSession] : next->mByGuid) {
-            next->mOrdered.push_back(currentSession);
-        }
-
-        if (mSessionsState.compare_exchange_weak(current, next, std::memory_order_release, std::memory_order_acquire)) {
-            return removed;
-        }
+std::shared_ptr<Session> ServerNetworkSystem::removeSession(const RakNet::RakNetGUID& key) {
+    std::shared_ptr<Session> removed;
+    const bool found = mSessions.modify_if(key, [&removed](SessionsMap::value_type& entry) { removed = entry.second; });
+    if (!found) {
+        return nullptr;
     }
+
+    (void)mSessions.erase(key);
+    return removed;
 }
 
 void ServerNetworkSystem::RakPeerDeleter::operator()(RakNet::RakPeerInterface* peer) const noexcept {

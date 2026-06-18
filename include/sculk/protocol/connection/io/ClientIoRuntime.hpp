@@ -7,7 +7,7 @@
 
 #pragma once
 #include "sculk/protocol/Version.hpp"
-#include "sculk/protocol/utility/AtomicSharedPtr.hpp"
+#include "sculk/protocol/connection/thread/AtomicSharedPtr.hpp"
 #include <atomic>
 #include <cstddef>
 #include <cstdint>

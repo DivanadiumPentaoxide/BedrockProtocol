@@ -84,6 +84,9 @@ public:
     void stop() noexcept;
 
 private:
+#ifndef _LIBCPP_VERSION
+    using Task = std::move_only_function<void() noexcept>;
+#else
     class Task final {
     private:
         struct Concept {
@@ -114,15 +117,12 @@ private:
         Task(Task&&) noexcept            = default;
         Task& operator=(Task&&) noexcept = default;
 
-        void operator()() noexcept {
-            if (mFunction) {
-                mFunction->call();
-            }
-        }
+        void operator()() noexcept { mFunction->call(); }
 
     private:
         std::unique_ptr<Concept> mFunction{};
     };
+#endif
 
     struct WorkerState final {
         moodycamel::ConcurrentQueue<Task>    mTasks{};
