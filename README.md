@@ -1,5 +1,7 @@
 # 📄 Protocol
 
+![Protocol Version](https://img.shields.io/badge/Bedrock-v1001%20%7C%2026.30-30ffee?style=flat-square)   
+
 ![C++23](https://img.shields.io/badge/C%2B%2B-23-blue)
 ![CMake](https://img.shields.io/badge/CMake-3.20%2B-064f8c)
 ![License](https://img.shields.io/badge/License-MPL--2.0-brightgreen)
@@ -125,7 +127,7 @@ int main() {
 ## 🧬 ABI Namespace
 
 Public APIs are versioned with an inline ABI namespace,
-for example `sculk::protocol::abi_v975`.
+for example `sculk::protocol::abi_v1001`.
 
 ## 🤝 Contributing
 
