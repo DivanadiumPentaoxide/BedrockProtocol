@@ -7,10 +7,10 @@
 
 #pragma once
 #include "Result.hpp"
-#include "SwapEndian.hpp"
 #include "Traits.hpp"
 #include "Variant.hpp"
 #include <algorithm>
+#include <bit>
 #include <bitset>
 #include <cstddef>
 #include <functional>
@@ -246,7 +246,7 @@ public:
 
     [[nodiscard]] constexpr Result<> readSignedBigEndianInt(std::int32_t& value _SCULK_SL_PARAM_DEFAULT) noexcept {
         if (read(&value _SCULK_SL_PARAM_PASS)) {
-            value = swapEndian(value);
+            value = std::byteswap(value);
             return {};
         }
         return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readSignedBigEndianInt failed");

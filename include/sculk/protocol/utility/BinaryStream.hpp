@@ -6,9 +6,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
-#include "SwapEndian.hpp"
 #include "Traits.hpp"
-#include "sculk/protocol/Version.hpp"
+#include <algorithm>
+#include <bit>
 #include <bitset>
 #include <cstddef>
 #include <cstdint>
@@ -130,7 +130,7 @@ public:
     }
 
     constexpr void writeSignedBigEndianInt(std::int32_t value) {
-        value = swapEndian(value);
+        value = std::byteswap(value);
         write(value);
     }
 
