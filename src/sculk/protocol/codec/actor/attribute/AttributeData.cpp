@@ -10,13 +10,11 @@
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void AttributeData::write(BinaryStream& stream) const {
-    stream.writeVariant(mData, &BinaryStream::writeUnsignedVarInt, [&stream](const auto& data) { data.write(stream); });
+    stream.writeVariant(mData, [&stream](const auto& data) { data.write(stream); });
 }
 
 Result<> AttributeData::read(ReadOnlyBinaryStream& stream) {
-    return stream.readVariant(mData, &ReadOnlyBinaryStream::readUnsignedVarInt, [&stream](auto& data) {
-        return data.read(stream);
-    });
+    return stream.readVariant(mData, [&stream](auto& data) { return data.read(stream); });
 }
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

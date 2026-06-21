@@ -240,6 +240,11 @@ public:
             var
         );
     }
+
+    template <typename T, typename V>
+    constexpr void writeVariant(const T& var, V&& visitor) {
+        return writeVariant(var, &BinaryStream::writeUnsignedVarInt, std::forward<V>(visitor));
+    }
 };
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

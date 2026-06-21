@@ -31,7 +31,9 @@ Result<> AddVolumeEntityPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readUnsignedVarInt(mEntityNetId));
     _SCULK_READ(mComponents.read(stream));
     _SCULK_READ(stream.readString(mJsonIdentifier));
+    _SCULK_CHECK_MIN(mJsonIdentifier.size(), 1)
     _SCULK_READ(stream.readString(mInstanceName));
+    _SCULK_CHECK_MIN(mInstanceName.size(), 1)
     _SCULK_READ(mMaxBounds.read(stream));
     _SCULK_READ(mMaxBounds.read(stream));
     _SCULK_READ(stream.readVarInt(mDimensionType));

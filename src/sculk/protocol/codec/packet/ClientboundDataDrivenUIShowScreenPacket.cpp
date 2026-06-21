@@ -28,6 +28,7 @@ void ClientboundDataDrivenUIShowScreenPacket::write(BinaryStream& stream) const 
 
 Result<> ClientboundDataDrivenUIShowScreenPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readString(mScreenId));
+    _SCULK_CHECK_MAX(mScreenId.size(), 500)
     _SCULK_READ(stream.readUnsignedInt(mFormId));
     return stream.readOptional(mDataInstanceId, &ReadOnlyBinaryStream::readUnsignedInt);
 }

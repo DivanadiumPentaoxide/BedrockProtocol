@@ -19,25 +19,19 @@ MinecraftPacketIds ClientboundDataStorePacket::getId() const noexcept {
 std::string_view ClientboundDataStorePacket::getName() const noexcept { return "ClientboundDataStorePacket"; }
 
 void ClientboundDataStorePacket::write(BinaryStream& stream) const {
-    mDataStoreUpdate.write(stream);
-    mDataStoreChange.write(stream);
-    mDataStoreRemoval.write(stream);
+    stream.writeArray(mUpdates, [](BinaryStream& stream, const DataStore& update) {
+        stream.writeVariant(update, [&stream](const auto& value) { value.write(stream); });
+    });
 }
 
 Result<> ClientboundDataStorePacket::read(ReadOnlyBinaryStream& stream) {
-    _SCULK_READ(mDataStoreUpdate.read(stream));
-    _SCULK_READ(mDataStoreChange.read(stream));
-    return mDataStoreRemoval.read(stream);
+    return stream.readArray(mUpdates, [](ReadOnlyBinaryStream& stream, DataStore& update) {
+        return stream.readVariant(update, [&stream](auto& value) { return value.read(stream); });
+    });
 }
 
 #ifdef SCULK_PROTOCOL_ENABLE_FORMATTING
-std::string ClientboundDataStorePacket::toString() const {
-    return SCULK_FORMAT_PACKET(
-        SCULK_FORMAT_FIELD(mDataStoreUpdate),
-        SCULK_FORMAT_FIELD(mDataStoreChange),
-        SCULK_FORMAT_FIELD(mDataStoreRemoval)
-    );
-}
+std::string ClientboundDataStorePacket::toString() const { return SCULK_FORMAT_PACKET(SCULK_FORMAT_FIELD(mUpdates)); }
 #endif
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

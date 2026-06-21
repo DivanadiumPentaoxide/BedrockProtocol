@@ -24,7 +24,6 @@ void LegacyTelemetryEventPacket::write(BinaryStream& stream) const {
     stream.writeByte(mUsePlayerId);
     stream.writeVariant(
         mEventData,
-        &BinaryStream::writeUnsignedVarInt,
         Overload{
             [&](const Achievement& data) { stream.writeVarInt(static_cast<std::int32_t>(data.mAchievementId)); },
             [&](const Interaction& data) {
@@ -117,7 +116,6 @@ Result<> LegacyTelemetryEventPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readByte(mUsePlayerId));
     return stream.readVariant(
         mEventData,
-        &ReadOnlyBinaryStream::readUnsignedVarInt,
         Overload{
             [&](Achievement& data) {
                 std::int32_t achievementId{};

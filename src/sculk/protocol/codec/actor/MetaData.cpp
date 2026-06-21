@@ -14,7 +14,6 @@ void MetaData::write(BinaryStream& stream) const {
         stream.writeEnum(item.mId, &BinaryStream::writeUnsignedVarInt);
         stream.writeVariant(
             item.mData,
-            &BinaryStream::writeUnsignedVarInt,
             Overload{
                 [&](uint8_t data) { stream.writeByte(data); },
                 [&](short data) { stream.writeSignedShort(data); },
@@ -35,7 +34,6 @@ Result<> MetaData::read(ReadOnlyBinaryStream& stream) {
         _SCULK_READ(stream.readEnum(item.mId, &ReadOnlyBinaryStream::readUnsignedVarInt));
         return stream.readVariant(
             item.mData,
-            &ReadOnlyBinaryStream::readUnsignedVarInt,
             Overload{
                 [&](uint8_t& data) { return stream.readByte(data); },
                 [&](short& data) { return stream.readSignedShort(data); },

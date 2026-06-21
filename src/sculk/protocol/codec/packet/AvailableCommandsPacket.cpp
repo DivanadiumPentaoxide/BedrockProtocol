@@ -33,6 +33,7 @@ Result<> AvailableCommandsPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readArray(mPostFixes, &ReadOnlyBinaryStream::readString));
     _SCULK_READ(stream.readArray(mEnumData, &CommandEnumData::read));
     _SCULK_READ(stream.readArray(mChainedSubcommandData, &CommandChainedSubcommandData::read));
+    _SCULK_CHECK_MAX(mChainedSubcommandData.size(), 16)
     _SCULK_READ(stream.readArray(mCommands, &CommandData::read));
     _SCULK_READ(stream.readArray(mSoftEnums, &CommandSoftEnumData::read));
     return stream.readArray(mConstraints, &CommandConstrainedValueData::read);

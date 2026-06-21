@@ -15,7 +15,6 @@ void DataStoreUpdate::write(BinaryStream& stream) const {
     stream.writeString(mPath);
     stream.writeVariant(
         mData,
-        &BinaryStream::writeUnsignedVarInt,
         Overload{
             [&](double value) { stream.writeDouble(value); },
             [&](bool value) { stream.writeBool(value); },
@@ -32,7 +31,6 @@ Result<> DataStoreUpdate::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readString(mPath));
     _SCULK_READ(stream.readVariant(
         mData,
-        &ReadOnlyBinaryStream::readUnsignedVarInt,
         Overload{
             [&](double& value) { return stream.readDouble(value); },
             [&](bool& value) { return stream.readBool(value); },
@@ -49,7 +47,6 @@ void DataStoreChange::write(BinaryStream& stream) const {
     stream.writeUnsignedInt(mUpdateCount);
     stream.writeVariant(
         mData,
-        &BinaryStream::writeUnsignedVarInt,
         Overload{
             [&](double value) { stream.writeDouble(value); },
             [&](bool value) { stream.writeBool(value); },
@@ -64,7 +61,6 @@ Result<> DataStoreChange::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readUnsignedInt(mUpdateCount));
     return stream.readVariant(
         mData,
-        &ReadOnlyBinaryStream::readUnsignedVarInt,
         Overload{
             [&](double& value) { return stream.readDouble(value); },
             [&](bool& value) { return stream.readBool(value); },

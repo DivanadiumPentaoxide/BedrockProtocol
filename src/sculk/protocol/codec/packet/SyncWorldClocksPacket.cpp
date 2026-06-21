@@ -19,7 +19,6 @@ std::string_view SyncWorldClocksPacket::getName() const noexcept { return "SyncW
 void SyncWorldClocksPacket::write(BinaryStream& stream) const {
     stream.writeVariant(
         mData,
-        &BinaryStream::writeUnsignedVarInt,
         Overload{
             [&](const SyncStateData& body) { stream.writeArray(body.mClockData, &SyncWorldClockStateData::write); },
             [&](const InitializeRegistryData& body) { stream.writeArray(body.mClockData, &WorldClockData::write); },
@@ -38,7 +37,6 @@ void SyncWorldClocksPacket::write(BinaryStream& stream) const {
 Result<> SyncWorldClocksPacket::read(ReadOnlyBinaryStream& stream) {
     return stream.readVariant(
         mData,
-        &ReadOnlyBinaryStream::readUnsignedVarInt,
         Overload{
             [&](SyncStateData& body) { return stream.readArray(body.mClockData, &SyncWorldClockStateData::read); },
             [&](InitializeRegistryData& body) { return stream.readArray(body.mClockData, &WorldClockData::read); },

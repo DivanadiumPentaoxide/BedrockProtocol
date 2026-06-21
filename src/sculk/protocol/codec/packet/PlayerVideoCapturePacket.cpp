@@ -19,7 +19,6 @@ std::string_view PlayerVideoCapturePacket::getName() const noexcept { return "Pl
 void PlayerVideoCapturePacket::write(BinaryStream& stream) const {
     stream.writeVariant(
         mParams,
-        &BinaryStream::writeByte,
         Overload{
             [&](const StartVideoCapture& data) {
                 stream.writeUnsignedInt(data.mFrameRate);
@@ -33,7 +32,6 @@ void PlayerVideoCapturePacket::write(BinaryStream& stream) const {
 Result<> PlayerVideoCapturePacket::read(ReadOnlyBinaryStream& stream) {
     return stream.readVariant(
         mParams,
-        &ReadOnlyBinaryStream::readByte,
         Overload{
             [&](StartVideoCapture& data) {
                 _SCULK_READ(stream.readUnsignedInt(data.mFrameRate));

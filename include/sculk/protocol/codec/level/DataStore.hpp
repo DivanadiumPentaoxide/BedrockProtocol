@@ -45,4 +45,6 @@ struct DataStoreRemoval {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
+using DataStore = std::variant<DataStoreUpdate, DataStoreChange, DataStoreRemoval>;
+
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

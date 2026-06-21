@@ -32,8 +32,8 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct ErrorInfo {
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-    std::source_location mLocation{};
     std::string          mMessage{};
+    std::source_location mLocation{};
 #else
     std::string_view mMessage{};
 #endif
@@ -80,5 +80,36 @@ makeError(std::string_view error, std::source_location location = std::source_lo
 
 #define _SCULK_READ(expr)                                                                                              \
     if (auto status = expr; !status) return status
+
+#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
+#define _SCULK_CHECK_MIN(VALUE, MIN)                                                                                   \
+    if (VALUE < static_cast<std::remove_cv_t<std::remove_reference_t<decltype(VALUE)>>>(MIN)) {                        \
+        return error_utils::makeError(                                                                                 \
+            std::format(#VALUE " out of bounds: too small: value={}, min={}", VALUE, MIN),                             \
+            std::source_location::current()                                                                            \
+        );                                                                                                             \
+    }
+#define _SCULK_CHECK_MAX(VALUE, MAX)                                                                                   \
+    if (VALUE > static_cast<std::remove_cv_t<std::remove_reference_t<decltype(VALUE)>>>(MAX)) {                        \
+        return error_utils::makeError(                                                                                 \
+            std::format(#VALUE " out of bounds: too large: value={}, max={}", VALUE, MAX),                             \
+            std::source_location::current()                                                                            \
+        );                                                                                                             \
+    }
+#else
+#define _SCULK_CHECK_MIN(VALUE, MIN)                                                                                   \
+    if (VALUE < static_cast<std::remove_cv_t<std::remove_reference_t<decltype(VALUE)>>>(MIN)) {                        \
+        return error_utils::makeError(#VALUE " out of bounds: too small");                                             \
+    }
+#define _SCULK_CHECK_MAX(VALUE, MAX)                                                                                   \
+    if (VALUE > static_cast<std::remove_cv_t<std::remove_reference_t<decltype(VALUE)>>>(MAX)) {                        \
+        return error_utils::makeError(#VALUE " out of bounds: too large");
+}
+#endif
+
+#define _SCULK_CHECK_BOUNDS(VALUE, MIN, MAX)                                                                           \
+    _SCULK_CHECK_MIN(VALUE, MIN)                                                                                       \
+    else _SCULK_CHECK_MAX(VALUE, MAX)
+
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

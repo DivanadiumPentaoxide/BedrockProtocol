@@ -48,9 +48,7 @@ void NetworkItemStackDescriptor::writeCereal(BinaryStream& stream) const {
     stream.writeUnsignedShort(mStackSize);
     stream.writeUnsignedVarInt(mAux);
     stream.writeOptional(mNetId, [&](BinaryStream& stream, const NetIdVariant& var) {
-        stream.writeVariant(var, &BinaryStream::writeUnsignedVarInt, [&stream](const auto& value) {
-            stream.writeVarInt(value.mId);
-        });
+        stream.writeVariant(var, [&stream](const auto& value) { stream.writeVarInt(value.mId); });
     });
     stream.writeUnsignedVarInt(mBlockRuntimeId);
     stream.writeString(mUserData);
@@ -61,9 +59,7 @@ void NetworkItemStackDescriptor::writeCereal(BinaryStream& stream) const {
     _SCULK_READ(stream.readUnsignedShort(mStackSize));
     _SCULK_READ(stream.readUnsignedVarInt(mAux));
     _SCULK_READ(stream.readOptional(mNetId, [&](ReadOnlyBinaryStream& stream, NetIdVariant& var) {
-        return stream.readVariant(var, &ReadOnlyBinaryStream::readUnsignedVarInt, [&stream](auto& value) {
-            return stream.readVarInt(value.mId);
-        });
+        return stream.readVariant(var, [&stream](auto& value) { return stream.readVarInt(value.mId); });
     }));
     _SCULK_READ(stream.readUnsignedVarInt(mBlockRuntimeId));
     return stream.readString(mUserData);

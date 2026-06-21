@@ -20,7 +20,6 @@ void TextPacket::write(BinaryStream& stream) const {
     stream.writeBool(mLocalize);
     stream.writeVariant(
         mBody,
-        &BinaryStream::writeByte,
         Overload{
             [&](const TextPacket::MessageOnly& body) {
                 stream.writeEnum(mType, &BinaryStream::writeByte);
@@ -47,7 +46,6 @@ Result<> TextPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readBool(mLocalize));
     _SCULK_READ(stream.readVariant(
         mBody,
-        &ReadOnlyBinaryStream::readByte,
         Overload{
             [&](TextPacket::MessageOnly& body) {
                 _SCULK_READ(stream.readEnum(mType, &ReadOnlyBinaryStream::readByte));

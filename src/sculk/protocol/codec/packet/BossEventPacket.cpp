@@ -32,7 +32,9 @@ Result<> BossEventPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readVarInt64(mPlayerID));
     _SCULK_READ(stream.readEnum(mType, &ReadOnlyBinaryStream::readUnsignedVarInt));
     _SCULK_READ(stream.readString(mName));
+    _SCULK_CHECK_MAX(mName.size(), 256)
     _SCULK_READ(stream.readString(mFilteredName));
+    _SCULK_CHECK_MAX(mFilteredName.size(), 256)
     _SCULK_READ(stream.readFloat(mPercentage));
     _SCULK_READ(stream.readUnsignedVarInt(mColor));
     return stream.readUnsignedVarInt(mOverlay);

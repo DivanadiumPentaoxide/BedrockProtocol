@@ -14,7 +14,6 @@ void GameRuleData::write(BinaryStream& stream) const {
     stream.writeBool(mCanBeModifiedByPlayer);
     stream.writeVariant(
         mData,
-        &BinaryStream::writeUnsignedVarInt,
         Overload{
             [](std::monostate) {},
             [&](bool value) { stream.writeBool(value); },
@@ -29,7 +28,6 @@ Result<> GameRuleData::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readBool(mCanBeModifiedByPlayer));
     return stream.readVariant(
         mData,
-        &ReadOnlyBinaryStream::readUnsignedVarInt,
         Overload{
             [](std::monostate) { return Result<>{}; },
             [&](bool& value) { return stream.readBool(value); },
@@ -44,7 +42,6 @@ void GameRuleData::writeLevelSettings(BinaryStream& stream) const {
     stream.writeBool(mCanBeModifiedByPlayer);
     stream.writeVariant(
         mData,
-        &BinaryStream::writeUnsignedVarInt,
         Overload{
             [](std::monostate) {},
             [&](bool value) { stream.writeBool(value); },
@@ -59,7 +56,6 @@ Result<> GameRuleData::readLevelSettings(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readBool(mCanBeModifiedByPlayer));
     return stream.readVariant(
         mData,
-        &ReadOnlyBinaryStream::readUnsignedVarInt,
         Overload{
             [](std::monostate) { return Result<>{}; },
             [&](bool& value) { return stream.readBool(value); },

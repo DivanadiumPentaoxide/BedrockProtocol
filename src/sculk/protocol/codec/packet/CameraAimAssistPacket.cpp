@@ -29,6 +29,7 @@ Result<> CameraAimAssistPacket::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readString(mPresetId));
     _SCULK_READ(mViewAngle.read(stream));
     _SCULK_READ(stream.readFloat(mDistance));
+    _SCULK_CHECK_BOUNDS(mDistance, 0.0f, 16.0f)
     _SCULK_READ(stream.readEnum(mTargetMode, &ReadOnlyBinaryStream::readByte));
     _SCULK_READ(stream.readEnum(mAction, &ReadOnlyBinaryStream::readByte));
     return stream.readBool(mShowDebugRender);
@@ -41,7 +42,8 @@ std::string CameraAimAssistPacket::toString() const {
         SCULK_FORMAT_FIELD(mViewAngle),
         SCULK_FORMAT_FIELD(mDistance),
         SCULK_FORMAT_FIELD(mTargetMode),
-        SCULK_FORMAT_FIELD(mAction)
+        SCULK_FORMAT_FIELD(mAction),
+        SCULK_FORMAT_FIELD(mShowDebugRender)
     );
 }
 #endif

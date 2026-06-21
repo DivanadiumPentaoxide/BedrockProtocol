@@ -13,9 +13,7 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class ClientboundDataStorePacket : public IPacket {
 public:
-    DataStoreUpdate  mDataStoreUpdate{};
-    DataStoreChange  mDataStoreChange{};
-    DataStoreRemoval mDataStoreRemoval{};
+    std::vector<DataStore> mUpdates{};
 
 public:
     [[nodiscard]] MinecraftPacketIds getId() const noexcept override;

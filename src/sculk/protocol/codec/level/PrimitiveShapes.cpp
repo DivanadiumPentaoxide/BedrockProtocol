@@ -24,7 +24,6 @@ void PrimitiveShapes::write(BinaryStream& stream) const {
     stream.writeOptional(mAttachedToEntityId, &BinaryStream::writeVarInt64);
     stream.writeVariant(
         mShape,
-        &BinaryStream::writeUnsignedVarInt,
         Overload{
             [&](const LineDataPayload& line) { line.mLineEndLocation.write(stream); },
             [&](const BoxDataPayload& box) { box.mBoxBound.write(stream); },
@@ -83,7 +82,6 @@ Result<> PrimitiveShapes::read(ReadOnlyBinaryStream& stream) {
     _SCULK_READ(stream.readOptional(mAttachedToEntityId, &ReadOnlyBinaryStream::readVarInt64));
     return stream.readVariant(
         mShape,
-        &ReadOnlyBinaryStream::readUnsignedVarInt,
         Overload{
             [&](LineDataPayload& line) { return line.mLineEndLocation.read(stream); },
             [&](BoxDataPayload& box) { return box.mBoxBound.read(stream); },
