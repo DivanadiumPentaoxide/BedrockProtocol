@@ -18,6 +18,7 @@
 #include <concurrentqueue.h>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <optional>
 #include <span>
@@ -37,7 +38,7 @@ protected:
     RakNet::RakPeerInterface*             mPeer{};
     RakNet::AddressOrGUID                 mRemote{};
     moodycamel::ConcurrentQueue<Buffer>   mInboundPackets{};
-    moodycamel::ConcurrentQueue<Buffer>   mOutboundPackets{};
+    std::deque<Buffer>                    mOutboundPackets{};
     std::atomic_uint32_t                  mInboundQueuedPackets{0};
     std::atomic_uint32_t                  mOutboundQueuedPackets{0};
     std::atomic_uint64_t                  mInboundQueuedBytes{0};

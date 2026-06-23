@@ -13,6 +13,7 @@
 #include <PacketPriority.h>
 #include <RakNetStatistics.h>
 #include <chrono>
+#include <mutex>
 #include <thread>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
@@ -124,7 +125,9 @@ bool Session::sendPacket(BufferView buffer) {
         return false;
     }
 
-    Buffer copied{buffer.begin(), buffer.end()};
+    Buffer           copied{buffer.begin(), buffer.end()};
+    std::scoped_lock lock{mMutex};
+
     if (!tryAcquireQueueBudget(
             mOutboundQueuedPackets,
             mOutboundQueuedBytes,
@@ -136,11 +139,7 @@ bool Session::sendPacket(BufferView buffer) {
         return false;
     }
 
-    if (!mOutboundPackets.enqueue(std::move(copied))) {
-        releaseQueueBudget(mOutboundQueuedPackets, mOutboundQueuedBytes, static_cast<std::uint64_t>(buffer.size()));
-        mDroppedOutboundPackets.fetch_add(1, std::memory_order_relaxed);
-        return false;
-    }
+    mOutboundPackets.push_back(std::move(copied));
 
     return true;
 }
@@ -150,7 +149,9 @@ bool Session::sendPacket(Buffer&& buffer) {
         return false;
     }
 
-    const auto packetBytes = static_cast<std::uint64_t>(buffer.size());
+    const auto       packetBytes = static_cast<std::uint64_t>(buffer.size());
+    std::scoped_lock lock{mMutex};
+
     if (!tryAcquireQueueBudget(
             mOutboundQueuedPackets,
             mOutboundQueuedBytes,
@@ -162,11 +163,7 @@ bool Session::sendPacket(Buffer&& buffer) {
         return false;
     }
 
-    if (!mOutboundPackets.enqueue(std::move(buffer))) {
-        releaseQueueBudget(mOutboundQueuedPackets, mOutboundQueuedBytes, packetBytes);
-        mDroppedOutboundPackets.fetch_add(1, std::memory_order_relaxed);
-        return false;
-    }
+    mOutboundPackets.push_back(std::move(buffer));
 
     return true;
 }
@@ -206,7 +203,7 @@ bool Session::flushIfDue(std::chrono::steady_clock::time_point now) noexcept {
         return false;
     }
 
-    // std::scoped_lock lock{mMutex}; // TODO: ??
+    std::scoped_lock lock{mMutex};
     mNextFlushAt = now + FLUSH_INTERVAL;
     return flushUnlocked();
 }
@@ -217,10 +214,11 @@ bool Session::flushUnlocked() {
     }
 
     std::vector<Buffer> outPackets{};
-    outPackets.reserve(mOutboundPackets.size_approx());
+    outPackets.reserve(mOutboundPackets.size());
 
-    Buffer packet{};
-    while (mOutboundPackets.try_dequeue(packet)) {
+    while (!mOutboundPackets.empty()) {
+        Buffer packet = std::move(mOutboundPackets.front());
+        mOutboundPackets.pop_front();
         const auto packetBytes = static_cast<std::uint64_t>(packet.size());
         releaseQueueBudget(mOutboundQueuedPackets, mOutboundQueuedBytes, packetBytes);
         outPackets.push_back(std::move(packet));
@@ -423,6 +421,14 @@ void Session::disconnect() noexcept {
         mCompressionThreshold = 0;
         mCompressionType.reset();
         mEncryption.reset();
+
+        while (!mOutboundPackets.empty()) {
+            auto drainedOutbound = std::move(mOutboundPackets.front());
+            mOutboundPackets.pop_front();
+            const auto packetBytes = static_cast<std::uint64_t>(drainedOutbound.size());
+            releaseQueueBudget(mOutboundQueuedPackets, mOutboundQueuedBytes, packetBytes);
+            drainedOutbound.clear();
+        }
     }
 
     // Drain pending queues on disconnect to promptly release retained buffers.
@@ -430,12 +436,6 @@ void Session::disconnect() noexcept {
     while (mInboundPackets.try_dequeue(drained)) {
         const auto packetBytes = static_cast<std::uint64_t>(drained.size());
         releaseQueueBudget(mInboundQueuedPackets, mInboundQueuedBytes, packetBytes);
-        drained.clear();
-    }
-
-    while (mOutboundPackets.try_dequeue(drained)) {
-        const auto packetBytes = static_cast<std::uint64_t>(drained.size());
-        releaseQueueBudget(mOutboundQueuedPackets, mOutboundQueuedBytes, packetBytes);
         drained.clear();
     }
 
