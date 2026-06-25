@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "Endian.hpp"
 #include "Traits.hpp"
 #include <algorithm>
 #include <bit>
@@ -25,8 +26,6 @@
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class BinaryStream {
-    static_assert(std::endian::native == std::endian::little, "BinaryStream requires little-endian architecture");
-
 public:
     std::vector<std::byte>& mBuffer;
 
@@ -41,6 +40,7 @@ private:
     template <typename T>
     constexpr void write(T value) {
         static_assert(std::is_trivially_copyable_v<T>, "BinaryStream::write requires trivially copyable type");
+        value = endian::toLittleEndian(value);
         appendBytes(reinterpret_cast<const std::byte*>(&value), sizeof(T));
     }
 

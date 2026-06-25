@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma once
+#include "Endian.hpp"
 #include "Result.hpp"
 #include "Traits.hpp"
 #include "Variant.hpp"
@@ -34,11 +35,6 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 #endif
 
 class ReadOnlyBinaryStream {
-    static_assert(
-        std::endian::native == std::endian::little,
-        "ReadOnlyBinaryStream requires little-endian architecture"
-    );
-
 public:
     bool                       mHasOverflowed{};
     std::span<const std::byte> mBufferView{};
@@ -63,6 +59,7 @@ private:
             sizeof(T),
             reinterpret_cast<char*>(target)
         );
+        *target = endian::fromLittleEndian(*target);
         mReadPointer = newReadPointer;
         return {};
     }
