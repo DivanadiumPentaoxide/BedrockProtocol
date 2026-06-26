@@ -18,9 +18,9 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 class Certificate {
 public:
     struct Header {
-        std::string                alg;
-        std::string                x5u;
-        std::optional<std::string> x5t;
+        std::string                alg{};
+        std::string                x5u{};
+        std::optional<std::string> x5t{};
     };
 
     struct ExtraData {

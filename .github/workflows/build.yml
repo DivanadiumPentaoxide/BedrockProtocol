@@ -1,0 +1,149 @@
+name: build
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - src/**
+            - include/**
+            - CMakeLists.txt
+    pull_request:
+        branches:
+            - main
+        paths:
+            - src/**
+            - include/**
+            - CMakeLists.txt
+    workflow_dispatch:
+
+jobs:
+    build-on-windows-amd64:
+        name: Build on Windows AMD64 (MSVC)
+        runs-on: windows-2025-vs2026
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup CMake
+              uses: jwlawson/actions-setup-cmake@v2
+
+            - name: Setup MSVC Developer Command Prompt
+              uses: ilammy/msvc-dev-cmd@v1
+              with:
+                  arch: x64
+
+            - name: Configure
+              run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl
+
+            - name: Build
+              run: cmake --build build --config Release --parallel
+
+    build-on-windows-arm64:
+        name: Build on Windows ARM64 (MSVC)
+        runs-on: windows-11-vs2026-arm
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup CMake
+              uses: jwlawson/actions-setup-cmake@v2
+
+            - name: Setup MSVC Developer Command Prompt
+              uses: ilammy/msvc-dev-cmd@v1
+              with:
+                  arch: arm64
+
+            - name: Configure
+              run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl
+
+            - name: Build
+              run: cmake --build build --config Release --parallel
+
+    build-on-linux-gnu-x86_64:
+        name: Build on Linux GNU X86_64 (GCC)
+        runs-on: ubuntu-24.04
+        container:
+            image: gcc:15
+            options: --privileged
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup CMake
+              uses: jwlawson/actions-setup-cmake@v2
+
+            - name: Install Dependencies
+              run: apt-get update && apt-get install -y ninja-build cmake
+
+            - name: Configure
+              run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+            - name: Build
+              run: cmake --build build --config Release --parallel
+
+    build-on-linux-gnu-arm64:
+        name: Build on Linux GNU ARM64 (GCC)
+        runs-on: ubuntu-24.04-arm
+        container:
+            image: gcc:15
+            options: --privileged
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup CMake
+              uses: jwlawson/actions-setup-cmake@v2
+
+            - name: Install Dependencies
+              run: apt-get update && apt-get install -y ninja-build cmake
+
+            - name: Configure
+              run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+            - name: Build
+              run: cmake --build build --config Release --parallel
+
+    build-on-linux-musl-x86_64:
+        name: Build on Linux musl X86_64 (Alpine)
+        runs-on: ubuntu-24.04
+        container:
+            image: alpine:3.24.1
+            options: --privileged
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Install Dependencies
+              run: apk add --no-cache build-base cmake ninja git openssl-dev
+
+            - name: Configure
+              run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+            - name: Build
+              run: cmake --build build --config Release --parallel
+
+    build-on-linux-musl-arm64:
+        name: Build on Linux musl ARM64 (Alpine)
+        runs-on: ubuntu-24.04-arm
+        container:
+            image: alpine:3.24.1
+            options: --privileged
+        steps:
+            - name: Install Dependencies
+              run: apk add --no-cache build-base cmake ninja git openssl-dev
+
+            - name: Checkout
+              env:
+                  GITHUB_TOKEN: ${{ github.token }}
+              run: |
+                  git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+                  git init .
+                  git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+                  git fetch --depth 1 origin "${GITHUB_SHA}"
+                  git checkout FETCH_HEAD
+
+            - name: Configure
+              run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+            - name: Build
+              run: cmake --build build --config Release --parallel

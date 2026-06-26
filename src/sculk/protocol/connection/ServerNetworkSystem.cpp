@@ -64,20 +64,20 @@ ServerNetworkSystem::ServerNetworkSystem(std::size_t workerThreadCount)
   mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(std::make_unique<thread::ThreadPool>(workerThreadCount)),
   mThreadPool(mOwnedThreadPool.get()),
-  mCallbacks(std::make_shared<CallbackSet>()),
   mFlushReadyPerTick(DEFAULT_FLUSH_READY_PER_TICK),
   mRawIngressMaxPacketBytes(DEFAULT_RAW_INGRESS_MAX_PACKET_BYTES),
-  mRawIngressMaxPacketsPerSecond(DEFAULT_RAW_INGRESS_MAX_PACKETS_PER_SECOND) {}
+  mRawIngressMaxPacketsPerSecond(DEFAULT_RAW_INGRESS_MAX_PACKETS_PER_SECOND),
+  mCallbacks(std::make_shared<CallbackSet>()) {}
 
 ServerNetworkSystem::ServerNetworkSystem(thread::ThreadPool& threadPool)
 : mMotd("Sculk Protocol Library"),
   mPeer(RakNet::RakPeerInterface::GetInstance()),
   mOwnedThreadPool(nullptr),
   mThreadPool(&threadPool),
-  mCallbacks(std::make_shared<CallbackSet>()),
   mFlushReadyPerTick(DEFAULT_FLUSH_READY_PER_TICK),
   mRawIngressMaxPacketBytes(DEFAULT_RAW_INGRESS_MAX_PACKET_BYTES),
-  mRawIngressMaxPacketsPerSecond(DEFAULT_RAW_INGRESS_MAX_PACKETS_PER_SECOND) {}
+  mRawIngressMaxPacketsPerSecond(DEFAULT_RAW_INGRESS_MAX_PACKETS_PER_SECOND),
+  mCallbacks(std::make_shared<CallbackSet>()) {}
 
 ServerNetworkSystem::~ServerNetworkSystem() { stop(); }
 
