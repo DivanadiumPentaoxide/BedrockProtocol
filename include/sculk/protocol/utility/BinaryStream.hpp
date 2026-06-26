@@ -260,10 +260,10 @@ public:
         using AT = std::remove_cv_t<std::remove_reference_t<traits::member_func_arg_t<P, 0>>>;
         if constexpr (requires { typename T::tag_enum_type; }) {
             std::invoke(std::forward<P>(prefix), *this, static_cast<AT>(var.type()));
-            var.visit([this, &visitor](auto&& arg) { std::invoke(std::forward<V>(visitor), arg); });
+            var.visit([&](auto&& arg) { std::invoke(std::forward<V>(visitor), arg); });
         } else {
             std::invoke(std::forward<P>(prefix), *this, static_cast<AT>(var.index()));
-            std::visit([this, &visitor](auto&& arg) { std::invoke(std::forward<V>(visitor), arg); }, var);
+            std::visit([&](auto&& arg) { std::invoke(std::forward<V>(visitor), arg); }, var);
         }
     }
 
