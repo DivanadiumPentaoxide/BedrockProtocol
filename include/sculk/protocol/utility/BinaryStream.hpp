@@ -66,9 +66,7 @@ public:
     }
 
     constexpr void writeAndMoveBuffer(std::vector<std::byte>&& buffer) {
-        const std::size_t oldSize = mBuffer.size();
-        mBuffer.resize(oldSize + buffer.size());
-        std::memcpy(mBuffer.data() + oldSize, buffer.data(), buffer.size());
+        mBuffer.insert(mBuffer.end(), buffer.begin(), buffer.end());
     }
 
     constexpr void writeBool(bool value) { write(value); }
