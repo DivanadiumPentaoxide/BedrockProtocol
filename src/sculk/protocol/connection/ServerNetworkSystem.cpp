@@ -23,14 +23,14 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 namespace {
 
-constexpr std::uint8_t       MINECRAFT_BATCH_PACKET_ID                  = 0xFE;
-constexpr auto               IO_PUMP_IDLE_WAIT                          = std::chrono::milliseconds(1);
-constexpr auto               FLUSH_PUMP_IDLE_WAIT                       = std::chrono::milliseconds(1);
-constexpr auto               FLUSH_INTERVAL                             = std::chrono::milliseconds(20);
-constexpr auto               RAW_INGRESS_WINDOW                         = std::chrono::seconds(1);
-static constexpr std::size_t DEFAULT_FLUSH_READY_PER_TICK               = 512;
-constexpr std::size_t        DEFAULT_RAW_INGRESS_MAX_PACKET_BYTES       = 8ULL * 1024ULL * 1024ULL;
-constexpr std::size_t        DEFAULT_RAW_INGRESS_MAX_PACKETS_PER_SECOND = 128;
+constexpr std::uint8_t MINECRAFT_BATCH_PACKET_ID                  = 0xFE;
+constexpr auto         IO_PUMP_IDLE_WAIT                          = std::chrono::milliseconds(1);
+constexpr auto         FLUSH_PUMP_IDLE_WAIT                       = std::chrono::milliseconds(1);
+constexpr auto         FLUSH_INTERVAL                             = std::chrono::milliseconds(20);
+constexpr auto         RAW_INGRESS_WINDOW                         = std::chrono::seconds(1);
+constexpr std::size_t  DEFAULT_FLUSH_READY_PER_TICK               = 512;
+constexpr std::size_t  DEFAULT_RAW_INGRESS_MAX_PACKET_BYTES       = 8ULL * 1024ULL * 1024ULL;
+constexpr std::size_t  DEFAULT_RAW_INGRESS_MAX_PACKETS_PER_SECOND = 128;
 
 [[nodiscard]] auto flushPhaseOffsetForGuid(const RakNet::RakNetGUID& guid) noexcept {
     const auto intervalMs = std::chrono::duration_cast<std::chrono::milliseconds>(FLUSH_INTERVAL).count();
@@ -248,42 +248,24 @@ Result<> ServerNetworkSystem::setFlushReadyPerTick(std::size_t maxReadyPerTick) 
 std::size_t ServerNetworkSystem::getFlushReadyPerTick() const noexcept { return mFlushReadyPerTick; }
 
 void ServerNetworkSystem::stop() {
-    if (!mRunning.exchange(false, std::memory_order_acq_rel)) {
-        return;
+    const bool wasRunning = mRunning.exchange(false, std::memory_order_acq_rel);
+
+    if (wasRunning) {
+        if (mIoPumpThread.joinable()) {
+            mIoPumpThread.request_stop();
+            mIoPumpThread.join();
+        }
+
+        waitForPendingFlushWakeups();
+        waitForPendingFlushJobs();
+        waitForPendingSessionPacketTasks();
+        clearFlushSchedule();
     }
 
-    if (mIoPumpThread.joinable()) {
-        mIoPumpThread.request_stop();
-        mIoPumpThread.join();
-    }
+    disconnectAllSessionsForTeardown();
 
-    waitForPendingFlushWakeups();
-    waitForPendingFlushJobs();
-    waitForPendingSessionPacketTasks();
-    clearFlushSchedule();
-
-    std::vector<std::shared_ptr<SessionContext>> contexts;
-    contexts.reserve(mSessionContexts.size());
-    mSessionContexts.for_each([&contexts](const SessionContextsMap::value_type& entry) {
-        contexts.push_back(entry.second);
-    });
-
-    for (const auto& context : contexts) {
-        context->mSession->disconnect();
-    }
-
-    std::vector<RakNet::RakNetGUID> contextKeys;
-    contextKeys.reserve(mSessionContexts.size());
-    mSessionContexts.for_each([&contextKeys](const SessionContextsMap::value_type& entry) {
-        contextKeys.push_back(entry.first);
-    });
-
-    for (const auto& key : contextKeys) {
-        (void)removeSessionContext(key);
-    }
-
-    if (mPeer) {
-        mPeer->Shutdown(20);
+    if (wasRunning && mPeer) {
+        mPeer->Shutdown(50);
     }
 }
 
@@ -322,30 +304,71 @@ void ServerNetworkSystem::scheduleSessionFlushAt(
     const RakNet::RakNetGUID&             guid,
     std::chrono::steady_clock::time_point due
 ) noexcept {
+    FlushScheduleCommand command{};
+    command.mKind = FlushScheduleCommand::Kind::Schedule;
+    command.mGuid = guid;
+    command.mDue  = due;
+
+    if (mFlushScheduleCommands.enqueue(command)) {
+        return;
+    }
+
     std::lock_guard lock{mFlushScheduleMutex};
-    const auto      token = mNextFlushToken++;
-    mFlushDueTokens[guid] = token;
-    mFlushDueHeap.push(
-        FlushDueEntry{
-            .mDue   = due,
-            .mGuid  = guid,
-            .mToken = token,
-        }
-    );
+    drainFlushScheduleCommandsUnlocked();
+    applyFlushScheduleCommandUnlocked(command);
 }
 
 void ServerNetworkSystem::cancelSessionFlush(const RakNet::RakNetGUID& guid) noexcept {
+    FlushScheduleCommand command{};
+    command.mKind = FlushScheduleCommand::Kind::Cancel;
+    command.mGuid = guid;
+
+    if (mFlushScheduleCommands.enqueue(command)) {
+        return;
+    }
+
     std::lock_guard lock{mFlushScheduleMutex};
-    (void)mFlushDueTokens.erase(guid);
+    drainFlushScheduleCommandsUnlocked();
+    applyFlushScheduleCommandUnlocked(command);
 }
 
 void ServerNetworkSystem::clearFlushSchedule() noexcept {
     std::lock_guard lock{mFlushScheduleMutex};
+    drainFlushScheduleCommandsUnlocked();
     while (!mFlushDueHeap.empty()) {
         mFlushDueHeap.pop();
     }
     mFlushDueTokens.clear();
     mNextFlushToken = 1;
+}
+
+void ServerNetworkSystem::drainFlushScheduleCommands() noexcept {
+    std::lock_guard lock{mFlushScheduleMutex};
+    drainFlushScheduleCommandsUnlocked();
+}
+
+void ServerNetworkSystem::drainFlushScheduleCommandsUnlocked() noexcept {
+    FlushScheduleCommand command{};
+    while (mFlushScheduleCommands.try_dequeue(command)) {
+        applyFlushScheduleCommandUnlocked(command);
+    }
+}
+
+void ServerNetworkSystem::applyFlushScheduleCommandUnlocked(const FlushScheduleCommand& command) noexcept {
+    if (command.mKind == FlushScheduleCommand::Kind::Schedule) {
+        const auto token               = mNextFlushToken++;
+        mFlushDueTokens[command.mGuid] = token;
+        mFlushDueHeap.push(
+            FlushDueEntry{
+                .mDue   = command.mDue,
+                .mGuid  = command.mGuid,
+                .mToken = token,
+            }
+        );
+        return;
+    }
+
+    (void)mFlushDueTokens.erase(command.mGuid);
 }
 
 Result<> ServerNetworkSystem::setOnConnected(ConnectionEventCallback&& callback) noexcept {
@@ -515,6 +538,8 @@ bool ServerNetworkSystem::flushTickOnce() noexcept {
     const auto  now               = std::chrono::steady_clock::now();
 
     while (processedReady < flushReadyPerTick) {
+        drainFlushScheduleCommands();
+
         FlushDueEntry entry{};
         {
             std::lock_guard lock{mFlushScheduleMutex};
@@ -676,6 +701,29 @@ void ServerNetworkSystem::waitForPendingSessionPacketTasks() noexcept {
     }
 }
 
+void ServerNetworkSystem::disconnectAllSessionsForTeardown() noexcept {
+    std::vector<std::shared_ptr<SessionContext>> contexts;
+    contexts.reserve(mSessionContexts.size());
+    mSessionContexts.for_each([&contexts](const SessionContextsMap::value_type& entry) {
+        contexts.push_back(entry.second);
+    });
+
+    for (const auto& context : contexts) {
+        context->mSession->disconnect();
+        context->mSession->detachPeer();
+    }
+
+    std::vector<RakNet::RakNetGUID> contextKeys;
+    contextKeys.reserve(mSessionContexts.size());
+    mSessionContexts.for_each([&contextKeys](const SessionContextsMap::value_type& entry) {
+        contextKeys.push_back(entry.first);
+    });
+
+    for (const auto& key : contextKeys) {
+        (void)removeSessionContext(key);
+    }
+}
+
 void ServerNetworkSystem::processIncomingPacket(detail::RakPacketOwner packetOwner) {
     auto&      packetRef      = *packetOwner.get();
     auto       callbacks      = mCallbacks.load(std::memory_order_acquire);
@@ -709,7 +757,7 @@ void ServerNetworkSystem::processIncomingPacket(detail::RakPacketOwner packetOwn
 
     if (messageId == DefaultMessageIDTypes::ID_NEW_INCOMING_CONNECTION) {
         auto newSessionContext                      = std::make_shared<SessionContext>();
-        newSessionContext->mSession                 = std::make_shared<Session>(mPeer.get(), remote);
+        newSessionContext->mSession                 = Session::create(mPeer.get(), remote);
         newSessionContext->mStrand                  = std::make_shared<thread::TaskStrand>(*mThreadPool);
         newSessionContext->mRawIngressWindowStart   = std::chrono::steady_clock::time_point{};
         newSessionContext->mRawIngressWindowPackets = 0;
