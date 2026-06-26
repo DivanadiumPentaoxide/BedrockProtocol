@@ -298,9 +298,9 @@ public:
     }
 
     template <typename T, typename P, typename R>
-    [[nodiscard]] constexpr Result<>
-    readArray(std::vector<T>& outVector, P&& prefix, R&& func _SCULK_SL_PARAM_DEFAULT) {
+    [[nodiscard]] constexpr Result<> readArray(T& outVector, P&& prefix, R&& func _SCULK_SL_PARAM_DEFAULT) {
         using AT = std::remove_cv_t<std::remove_reference_t<traits::member_func_arg_t<P, 0>>>;
+        using VT = typename T::value_type;
         AT length{};
         if (!std::invoke(std::forward<P>(prefix), *this, length _SCULK_SL_PARAM_PASS)) {
             return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readArray overflowed");
@@ -308,25 +308,25 @@ public:
 
         outVector.resize(static_cast<std::size_t>(length));
         for (auto& element : outVector) {
-            if constexpr (std::is_invocable_r_v<Result<>, R, ReadOnlyBinaryStream&, T&>) {
+            if constexpr (std::is_invocable_r_v<Result<>, R, ReadOnlyBinaryStream&, VT&>) {
                 _SCULK_READ(std::invoke(std::forward<R>(func), *this, element));
             }
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            else if constexpr (std::is_invocable_r_v<Result<>, R, ReadOnlyBinaryStream&, T & _SCULK_SL_PARAMETER>) {
-                _SCULK_READ(std::invoke(std::forward<R>(func), *this, element _SCULK_SL_PARAM_PASS));
+            else if constexpr (std::is_invocable_r_v<Result<>, R, ReadOnlyBinaryStream&, VT&, std::source_location>) {
+                _SCULK_READ(std::invoke(std::forward<R>(func), *this, element, location));
             }
 #endif
-            else if constexpr (std::is_invocable_r_v<Result<>, R, T&, ReadOnlyBinaryStream&>) {
+            else if constexpr (std::is_invocable_r_v<Result<>, R, VT&, ReadOnlyBinaryStream&>) {
                 _SCULK_READ(std::invoke(std::forward<R>(func), element, *this));
             } else {
-                static_assert(traits::always_false_v<T>, "invalid read array function");
+                static_assert(traits::always_false_v<R>, "invalid read array function");
             }
         }
         return {};
     }
 
     template <typename T, typename R>
-    [[nodiscard]] constexpr Result<> readArray(std::vector<T>& outVector, R&& func _SCULK_SL_PARAM_DEFAULT) {
+    [[nodiscard]] constexpr Result<> readArray(T& outVector, R&& func _SCULK_SL_PARAM_DEFAULT) {
         return readArray(
             outVector,
             &ReadOnlyBinaryStream::readUnsignedVarInt,
@@ -334,8 +334,48 @@ public:
         );
     }
 
+    template <typename T, typename P, typename R>
+    [[nodiscard]] constexpr Result<> readMap(T& outMap, P&& prefix, R&& func _SCULK_SL_PARAM_DEFAULT) {
+        using AT = std::remove_cv_t<std::remove_reference_t<traits::member_func_arg_t<P, 0>>>;
+        using KT = typename T::key_type;
+        using VT = typename T::mapped_type;
+        AT length{};
+        if (!std::invoke(std::forward<P>(prefix), *this, length _SCULK_SL_PARAM_PASS)) {
+            return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readMap overflowed");
+        }
+
+        outMap.clear();
+        for (AT i = 0; i < length; ++i) {
+            KT key{};
+            VT value{};
+            if constexpr (std::is_invocable_r_v<Result<>, R, ReadOnlyBinaryStream&, KT&, VT&>) {
+                _SCULK_READ(std::invoke(std::forward<R>(func), *this, key, value));
+            }
+#ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
+            else if constexpr (
+                std::is_invocable_r_v<Result<>, R, ReadOnlyBinaryStream&, KT&, VT&, std::source_location>
+            ) {
+                _SCULK_READ(std::invoke(std::forward<R>(func), *this, key, value, location));
+            }
+#endif
+            else if constexpr (std::is_invocable_r_v<Result<>, R, KT&, VT&, ReadOnlyBinaryStream&>) {
+                _SCULK_READ(std::invoke(std::forward<R>(func), key, value, *this));
+            } else {
+                static_assert(traits::always_false_v<R>, "invalid read map function");
+            }
+            outMap.emplace(std::move(key), std::move(value));
+        }
+        return {};
+    }
+
+    template <typename T, typename R>
+    [[nodiscard]] constexpr Result<> readMap(T& outMap, R&& func _SCULK_SL_PARAM_DEFAULT) {
+        return readMap(outMap, &ReadOnlyBinaryStream::readUnsignedVarInt, std::forward<R>(func) _SCULK_SL_PARAM_PASS);
+    }
+
     template <typename T, typename F>
-    [[nodiscard]] constexpr Result<> readOptional(std::optional<T>& outOpt, F&& func _SCULK_SL_PARAM_DEFAULT) noexcept {
+    [[nodiscard]] constexpr Result<> readOptional(T& outOpt, F&& func _SCULK_SL_PARAM_DEFAULT) noexcept {
+        using VT = typename T::value_type;
         outOpt.reset();
         bool hasValue{};
         if (!readBool(hasValue _SCULK_SL_PARAM_PASS)) {
@@ -343,18 +383,18 @@ public:
         }
         if (hasValue) {
             outOpt.emplace();
-            if constexpr (std::is_invocable_r_v<Result<>, F, ReadOnlyBinaryStream&, T&>) {
+            if constexpr (std::is_invocable_r_v<Result<>, F, ReadOnlyBinaryStream&, VT&>) {
                 return std::invoke(std::forward<F>(func), *this, *outOpt);
             }
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-            else if constexpr (std::is_invocable_r_v<Result<>, F, ReadOnlyBinaryStream&, T & _SCULK_SL_PARAMETER>) {
-                return std::invoke(std::forward<F>(func), *this, *outOpt _SCULK_SL_PARAM_PASS);
+            else if constexpr (std::is_invocable_r_v<Result<>, F, ReadOnlyBinaryStream&, VT&, std::source_location>) {
+                return std::invoke(std::forward<F>(func), *this, *outOpt, location);
             }
 #endif
-            else if constexpr (std::is_invocable_r_v<Result<>, F, T&, ReadOnlyBinaryStream&>) {
+            else if constexpr (std::is_invocable_r_v<Result<>, F, VT&, ReadOnlyBinaryStream&>) {
                 return std::invoke(std::forward<F>(func), *outOpt, *this);
             } else {
-                static_assert(traits::always_false_v<T>, "invalid read optional function");
+                static_assert(traits::always_false_v<F>, "invalid read optional function");
             }
         }
         return {};
@@ -439,7 +479,7 @@ public:
             return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readVariant invalid variant index");
         }
         return std::visit(
-            [&](auto&& arg) -> Result<> {
+            [this, &visitor](auto&& arg) -> Result<> {
                 return std::invoke(std::forward<V>(visitor), std::forward<decltype(arg)>(arg));
             },
             var

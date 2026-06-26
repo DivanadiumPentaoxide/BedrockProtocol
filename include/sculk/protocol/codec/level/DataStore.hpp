@@ -8,6 +8,7 @@
 #pragma once
 #include "sculk/protocol/utility/BinaryStream.hpp"
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
+#include <map>
 #include <string>
 #include <variant>
 
@@ -26,11 +27,28 @@ struct DataStoreUpdate {
     [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
 };
 
+struct DynamicValue {
+    using ValueType = std::variant<
+        std::monostate,
+        bool,
+        std::int64_t,
+        double,
+        std::string,
+        std::vector<DynamicValue>,
+        std::map<std::string, DynamicValue>>;
+
+    ValueType mValue{};
+
+    void write(BinaryStream& stream) const;
+
+    [[nodiscard]] Result<> read(ReadOnlyBinaryStream& stream);
+};
+
 struct DataStoreChange {
-    std::string                             mName{};
-    std::string                             mProperty{};
-    std::uint32_t                           mUpdateCount{};
-    std::variant<double, bool, std::string> mData{};
+    std::string   mName{};
+    std::string   mProperty{};
+    std::uint32_t mUpdateCount{};
+    DynamicValue  mValue{};
 
     void write(BinaryStream& stream) const;
 

@@ -155,36 +155,60 @@ public:
     }
 
     template <typename T, typename P, typename W>
-    constexpr void writeArray(const std::vector<T>& array, P&& prefix, W&& func) {
+    constexpr void writeArray(const T& array, P&& prefix, W&& func) {
         using AT = std::remove_cv_t<std::remove_reference_t<traits::member_func_arg_t<P, 0>>>;
+        using VT = typename T::value_type;
         std::invoke(std::forward<P>(prefix), *this, static_cast<AT>(array.size()));
         for (const auto& element : array) {
-            if constexpr (std::is_invocable_v<W, BinaryStream&, const T&>) {
+            if constexpr (std::is_invocable_v<W, BinaryStream&, const VT&>) {
                 std::invoke(std::forward<W>(func), *this, element);
-            } else if constexpr (std::is_invocable_v<W, const T&, BinaryStream&>) {
+            } else if constexpr (std::is_invocable_v<W, const VT&, BinaryStream&>) {
                 std::invoke(std::forward<W>(func), element, *this);
             } else {
-                static_assert(traits::always_false_v<T>, "invalid write array function");
+                static_assert(traits::always_false_v<W>, "invalid write array function");
             }
         }
     }
 
-    template <typename T, typename W, typename... Args>
-    constexpr void writeArray(const std::vector<T>& array, W&& func) {
+    template <typename T, typename W>
+    constexpr void writeArray(const T& array, W&& func) {
         writeArray(array, &BinaryStream::writeUnsignedVarInt, std::forward<W>(func));
     }
 
+    template <typename T, typename P, typename W>
+    constexpr void writeMap(const T& map, P&& prefix, W&& func) {
+        using AT = std::remove_cv_t<std::remove_reference_t<traits::member_func_arg_t<P, 0>>>;
+        using KT = typename T::key_type;
+        using VT = typename T::mapped_type;
+        std::invoke(std::forward<P>(prefix), *this, static_cast<AT>(map.size()));
+        for (const auto& [k, v] : map) {
+            if constexpr (std::is_invocable_v<W, BinaryStream&, const KT&, const VT&>) {
+                std::invoke(std::forward<W>(func), *this, k, v);
+            } else if constexpr (std::is_invocable_v<W, const KT&, const VT&, BinaryStream&>) {
+                std::invoke(std::forward<W>(func), k, v, *this);
+            } else {
+                static_assert(traits::always_false_v<W>, "invalid write map function");
+            }
+        }
+    }
+
+    template <typename T, typename W>
+    constexpr void writeMap(const T& map, W&& func) {
+        writeMap(map, &BinaryStream::writeUnsignedVarInt, std::forward<W>(func));
+    }
+
     template <typename T, typename F>
-    constexpr void writeOptional(const std::optional<T>& opt, F&& func) {
+    constexpr void writeOptional(const T& opt, F&& func) {
+        using VT      = typename T::value_type;
         bool hasValue = opt.has_value();
         writeBool(hasValue);
         if (hasValue) {
-            if constexpr (std::is_invocable_v<F, BinaryStream&, const T&>) {
+            if constexpr (std::is_invocable_v<F, BinaryStream&, const VT&>) {
                 std::invoke(std::forward<F>(func), *this, *opt);
-            } else if constexpr (std::is_invocable_v<F, const T&, BinaryStream&>) {
+            } else if constexpr (std::is_invocable_v<F, const VT&, BinaryStream&>) {
                 std::invoke(std::forward<F>(func), *opt, *this);
             } else {
-                static_assert(traits::always_false_v<T>, "invalid write optional function");
+                static_assert(traits::always_false_v<F>, "invalid write optional function");
             }
         }
     }

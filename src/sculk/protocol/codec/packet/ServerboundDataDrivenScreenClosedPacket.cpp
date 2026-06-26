@@ -22,12 +22,12 @@ std::string_view ServerboundDataDrivenScreenClosedPacket::getName() const noexce
 }
 
 void ServerboundDataDrivenScreenClosedPacket::write(BinaryStream& stream) const {
-    stream.writeOptional(mFormId, &BinaryStream::writeUnsignedInt);
+    stream.writeUnsignedInt(mFormId);
     utils::writeEnumName(stream, mCloseReason);
 }
 
 Result<> ServerboundDataDrivenScreenClosedPacket::read(ReadOnlyBinaryStream& stream) {
-    _SCULK_READ(stream.readOptional(mFormId, &ReadOnlyBinaryStream::readUnsignedInt));
+    _SCULK_READ(stream.readUnsignedInt(mFormId));
     return utils::readEnumName(stream, mCloseReason);
 }
 

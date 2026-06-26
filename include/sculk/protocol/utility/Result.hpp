@@ -22,12 +22,10 @@ namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 #define _SCULK_SL_PARAM_DEFAULT , std::source_location location = std::source_location::current()
 #define _SCULK_SL_PARAMETER_DEF , std::source_location location
 #define _SCULK_SL_PARAM_PASS    , location
-#define _SCULK_SL_PARAMETER     , std::source_location
 #else
 #define _SCULK_SL_PARAM_DEFAULT
 #define _SCULK_SL_PARAMETER_DEF
 #define _SCULK_SL_PARAM_PASS
-#define _SCULK_SL_PARAMETER
 #endif
 
 struct ErrorInfo {

@@ -23,8 +23,8 @@ public:
     };
 
 public:
-    std::optional<std::uint32_t> mFormId{};
-    CloseReason                  mCloseReason{};
+    std::uint32_t mFormId{};
+    CloseReason   mCloseReason{};
 
 public:
     [[nodiscard]] MinecraftPacketIds getId() const noexcept override;

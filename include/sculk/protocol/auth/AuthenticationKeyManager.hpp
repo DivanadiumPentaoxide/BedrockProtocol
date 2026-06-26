@@ -9,16 +9,16 @@
 #include "PemKeyPair.hpp"
 #include <chrono>
 #include <future>
+#include <parallel_hashmap/phmap.h>
 #include <string>
-#include <unordered_map>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class AuthenticationKeyManager {
-    std::unordered_map<std::string, std::string> mPublicKeysPemByKeyId{};
-    std::string                                  mExpectedIssuer{};
-    std::string                                  mExpectedPlayFabTitle{};
-    std::chrono::seconds                         mLeeway{};
+    phmap::flat_hash_map<std::string, std::string> mPublicKeysPemByKeyId{};
+    std::string                                    mExpectedIssuer{};
+    std::string                                    mExpectedPlayFabTitle{};
+    std::chrono::seconds                           mLeeway{};
 
 public:
     AuthenticationKeyManager(std::chrono::seconds leeway = std::chrono::seconds(60));
