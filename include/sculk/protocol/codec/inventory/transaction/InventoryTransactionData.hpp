@@ -7,15 +7,17 @@
 
 #pragma once
 #include "InventoryMismatchData.hpp"
+#include "InventoryTransactionType.hpp"
 #include "ItemReleaseInventoryTransaction.hpp"
 #include "ItemUseInventoryTransaction.hpp"
 #include "ItemUseOnActorInventoryTransaction.hpp"
 #include "NormalTransactionData.hpp"
-#include <variant>
+#include "sculk/protocol/utility/Variant.hpp"
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
-using InventoryTransactionVariant = std::variant<
+using InventoryTransactionVariant = TaggedVariant<
+    InventoryTransactionType,
     NormalTransactionData,
     InventoryMismatchData,
     ItemUseInventoryTransaction,

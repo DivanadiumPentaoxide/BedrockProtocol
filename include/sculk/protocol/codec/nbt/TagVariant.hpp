@@ -13,12 +13,14 @@
 #include "ValueTag.hpp"
 #include "sculk/protocol/utility/BinaryStream.hpp"
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
+#include "sculk/protocol/utility/Variant.hpp"
 #include <variant>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 struct TagVariant {
-    using VariantType = std::variant<
+    using VariantType = TaggedVariant<
+        TagType,
         EndTag,
         ByteTag,
         ShortTag,

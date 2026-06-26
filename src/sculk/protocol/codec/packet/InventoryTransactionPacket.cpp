@@ -24,9 +24,9 @@ void InventoryTransactionPacket::write(BinaryStream& stream) const {
         stream.writeArray(slots, &LegacySetItemSlot::write);
     });
     stream.writeBool(true); // Unknown flag, should always be true
-    stream.writeUnsignedVarInt(static_cast<std::uint32_t>(mTransaction.index()));
+    stream.writeEnum(mTransaction.type(), &BinaryStream::writeUnsignedVarInt);
     stream.writeBool(true); // Unknown flag, should always be true
-    std::visit([&](const auto& transaction) { transaction.write(stream); }, mTransaction);
+    mTransaction.visit([&](const auto& transaction) { transaction.write(stream); });
 }
 
 Result<> InventoryTransactionPacket::read(ReadOnlyBinaryStream& stream) {
@@ -44,14 +44,12 @@ Result<> InventoryTransactionPacket::read(ReadOnlyBinaryStream& stream) {
         return error_utils::makeError("Expected transaction variant");
     }
 
-    std::uint32_t transactionIndex{};
-    _SCULK_READ(stream.readUnsignedVarInt(transactionIndex));
+    InventoryTransactionType transactionType{};
+    _SCULK_READ(stream.readEnum(transactionType, &ReadOnlyBinaryStream::readUnsignedVarInt));
 #ifdef SCULK_PROTOCOL_ENABLE_DETAIL_ERRORS
-    _SCULK_READ(
-        emplace_variant(mTransaction, static_cast<std::size_t>(transactionIndex), std::source_location::current())
-    );
+    _SCULK_READ(mTransaction.set(transactionType, std::source_location::current()));
 #else
-    _SCULK_READ(emplace_variant(mTransaction, static_cast<std::size_t>(transactionIndex)));
+    _SCULK_READ(mTransaction.set(transactionType));
 #endif
 
     bool unknownFlag2{};
@@ -60,7 +58,7 @@ Result<> InventoryTransactionPacket::read(ReadOnlyBinaryStream& stream) {
         return error_utils::makeError("Expected transaction data");
     }
 
-    return std::visit([&](auto& transaction) { return transaction.read(stream); }, mTransaction);
+    return mTransaction.visit([&](auto& transaction) { return transaction.read(stream); });
 }
 
 #ifdef SCULK_PROTOCOL_ENABLE_FORMATTING

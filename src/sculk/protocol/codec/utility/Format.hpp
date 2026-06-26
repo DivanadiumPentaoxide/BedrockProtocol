@@ -5,6 +5,7 @@
 #include <format>
 #include <iterator>
 #include <magic_enum/magic_enum.hpp>
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <variant>
@@ -41,6 +42,12 @@ struct IsStdBitset : std::false_type {};
 
 template <std::size_t N>
 struct IsStdBitset<std::bitset<N>> : std::true_type {};
+
+template <typename T, typename = void>
+struct IsTaggedVariant : std::false_type {};
+
+template <typename T>
+struct IsTaggedVariant<T, std::void_t<typename T::tag_enum_type>> : std::true_type {};
 
 namespace concepts {
 
@@ -223,7 +230,18 @@ constexpr std::string typeToString(const T& value) {
         out.append(" ]");
         return out;
     } else if constexpr (concepts::IsVariant<T>) {
-        return std::visit([](const auto& v) { return typeToString(v); }, value);
+        return std::format(
+            "{{ mVariantIndex: {}, mVariantValue: {} }}",
+            value.index(),
+            std::visit([](const auto& v) { return typeToString(v); }, value)
+        );
+    } else if constexpr (IsTaggedVariant<std::remove_cvref_t<T>>::value) {
+        return std::format(
+            "{{ mVariantType: {}({}), mVariantValue: {} }}",
+            magic_enum::enum_name(value.type()),
+            std::to_underlying(value.type()),
+            value.visit([](const auto& v) { return typeToString(v); })
+        );
     } else if constexpr (concepts::IsBitset<T>) {
         std::string out{"{ "};
         for (std::size_t i = 0; i < value.size(); ++i) {

@@ -13,14 +13,11 @@
 #include "sculk/protocol/utility/BinaryStream.hpp"
 #include "sculk/protocol/utility/Enum.hpp"
 #include "sculk/protocol/utility/ReadOnlyBinaryStream.hpp"
-#include <variant>
 
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 class MetaData {
 public:
-    using DataItemVariant = std::variant<uint8_t, short, int, float, std::string, CompoundTag, BlockPos, int64_t, Vec3>;
-
     enum class DataItemType : std::uint8_t {
         Byte        = 0,
         Short       = 1,
@@ -33,6 +30,9 @@ public:
         Vec3        = 8,
         Unknown     = 9,
     };
+
+    using DataItemVariant =
+        TaggedVariant<DataItemType, uint8_t, short, int, float, std::string, CompoundTag, BlockPos, int64_t, Vec3>;
 
     struct DataItem {
         ActorDataIDs    mId{};

@@ -10,11 +10,11 @@
 namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE {
 
 void TagVariant::serialize(BinaryStream& stream) const {
-    std::visit([&stream](const auto& val) { val.serialize(stream); }, mValue);
+    mValue.visit([&stream](const auto& val) { val.serialize(stream); });
 }
 
 Result<> TagVariant::deserialize(ReadOnlyBinaryStream& stream) {
-    return std::visit([&stream](auto& val) { return val.deserialize(stream); }, mValue);
+    return mValue.visit([&stream](auto& val) { return val.deserialize(stream); });
 }
 
 TagVariant& TagVariant::emplace(TagType type) {
@@ -59,6 +59,6 @@ TagVariant& TagVariant::emplace(TagType type) {
     return *this;
 }
 
-TagType TagVariant::getType() const noexcept { return static_cast<TagType>(mValue.index()); }
+TagType TagVariant::getType() const noexcept { return mValue.type(); }
 
 } // namespace sculk::protocol::SCULK_ABI_INLINE_NAMESPACE

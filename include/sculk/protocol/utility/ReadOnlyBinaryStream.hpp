@@ -475,15 +475,23 @@ public:
         if (!std::invoke(std::forward<P>(prefix), *this, index _SCULK_SL_PARAM_PASS)) {
             return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readVariant overflowed");
         }
-        if (!emplace_variant(var, index _SCULK_SL_PARAM_PASS)) {
-            return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readVariant invalid variant index");
+        if constexpr (requires { typename T::tag_enum_type; }) {
+            using ET = typename T::tag_enum_type;
+            if (!var.set(static_cast<ET>(index) _SCULK_SL_PARAM_PASS)) {
+                return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readVariant invalid variant index");
+            }
+            return var.visit([this, &visitor](auto& arg) -> Result<> {
+                return std::invoke(std::forward<V>(visitor), arg);
+            });
+        } else {
+            if (!emplace_variant(var, index _SCULK_SL_PARAM_PASS)) {
+                return _SCULK_READ_ONLY_BINARY_STREAM_MAKE_ERROR("readVariant invalid variant index");
+            }
+            return std::visit(
+                [this, &visitor](auto&& arg) -> Result<> { return std::invoke(std::forward<V>(visitor), arg); },
+                var
+            );
         }
-        return std::visit(
-            [this, &visitor](auto&& arg) -> Result<> {
-                return std::invoke(std::forward<V>(visitor), std::forward<decltype(arg)>(arg));
-            },
-            var
-        );
     }
 
     template <typename T, typename V>
