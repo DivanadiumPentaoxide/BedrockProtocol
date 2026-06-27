@@ -11,6 +11,7 @@ set(CMAKE_FIND_PACKAGE_PREFER_CONFIG ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 
 option(PROTOCOL_ENABLE_DETAIL_ERRORS "Enable detailed error information" OFF)
 option(PROTOCOL_ENABLE_CODEC "Enable codec features" ON)
@@ -57,7 +58,7 @@ add_library(Protocol STATIC)
 add_library(Protocol::Protocol ALIAS Protocol)
 
 if(PROTOCOL_ENABLE_AUTHENTICATION OR PROTOCOL_ENABLE_CONNECTION)
-    set(OPENSSL_USE_STATIC_LIBS ON)
+    set(OPENSSL_USE_STATIC_LIBS ON CACHE BOOL "Use static OpenSSL libraries" FORCE)
     find_package(OpenSSL 3 REQUIRED)
     target_link_libraries(Protocol PRIVATE OpenSSL::Crypto)
 
@@ -124,32 +125,42 @@ if(PROTOCOL_ENABLE_CONNECTION)
     FetchContent_MakeAvailable(parallel_hashmap)
     target_include_directories(Protocol SYSTEM PUBLIC $<BUILD_INTERFACE:${parallel_hashmap_SOURCE_DIR}>)
 
-    set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Disable zlib tests" FORCE)
-    set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Disable zlib examples" FORCE)
-    set(SKIP_INSTALL_ALL ON CACHE BOOL "Disable zlib install targets" FORCE)
+    set(PROTOCOL_ZLIB_TARGET "")
+    set(ZLIB_USE_STATIC_LIBS ON CACHE BOOL "Use static zlib libraries" FORCE)
+    find_package(ZLIB QUIET)
 
-    FetchContent_Declare(
-        zlib
-        GIT_REPOSITORY https://github.com/madler/zlib.git
-        GIT_TAG v1.3.2
-    )
-    FetchContent_MakeAvailable(zlib)
+    if(TARGET ZLIB::ZLIB)
+        set(PROTOCOL_ZLIB_TARGET ZLIB::ZLIB)
+    else()
+        set(ZLIB_BUILD_TESTING OFF CACHE BOOL "Disable zlib tests" FORCE)
+        set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "Disable zlib examples" FORCE)
+        set(SKIP_INSTALL_ALL ON CACHE BOOL "Disable zlib install targets" FORCE)
 
-    if(NOT TARGET zlibstatic)
-        message(FATAL_ERROR "Static zlib target 'zlibstatic' was not generated. Static linking is required.")
+        FetchContent_Declare(
+            zlib
+            GIT_REPOSITORY https://github.com/madler/zlib.git
+            GIT_TAG v1.3.2
+        )
+        FetchContent_MakeAvailable(zlib)
+
+        if(NOT TARGET zlibstatic)
+            message(FATAL_ERROR "Static zlib target 'zlibstatic' was not generated. Static linking is required.")
+        endif()
+
+        foreach(PROTOCOL_ZLIB_OPTIONAL_TARGET zlib example minigzip example64 minigzip64)
+            if(TARGET ${PROTOCOL_ZLIB_OPTIONAL_TARGET})
+                set_target_properties(${PROTOCOL_ZLIB_OPTIONAL_TARGET} PROPERTIES
+                    EXCLUDE_FROM_ALL TRUE
+                    EXCLUDE_FROM_DEFAULT_BUILD TRUE
+                )
+            endif()
+        endforeach()
+
+        set(PROTOCOL_ZLIB_TARGET zlibstatic)
     endif()
 
-    foreach(PROTOCOL_ZLIB_OPTIONAL_TARGET zlib example minigzip example64 minigzip64)
-        if(TARGET ${PROTOCOL_ZLIB_OPTIONAL_TARGET})
-            set_target_properties(${PROTOCOL_ZLIB_OPTIONAL_TARGET} PROPERTIES
-                EXCLUDE_FROM_ALL TRUE
-                EXCLUDE_FROM_DEFAULT_BUILD TRUE
-            )
-        endif()
-    endforeach()
-
     target_link_libraries(Protocol PRIVATE
-        $<BUILD_INTERFACE:zlibstatic>
+        $<BUILD_INTERFACE:${PROTOCOL_ZLIB_TARGET}>
         $<INSTALL_INTERFACE:ZLIB::ZLIB>
     )
 
